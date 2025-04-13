@@ -5,9 +5,9 @@ import os
 import logging
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from telethon import TelegramClient, events, functions
+from telethon import TelegramClient, events, functions, utils
 from telethon.sessions import StringSession
 from telethon.tl.types import MessageEntityTextUrl, MessageEntityUrl, MessageMediaPhoto, MessageMediaDocument, PeerChannel, InputPeerChannel
 from telethon.tl.types import InputMediaPhoto, InputMediaDocument, InputMediaUploadedPhoto, InputMediaUploadedDocument
@@ -15,13 +15,114 @@ from telethon.utils import get_peer_id
 import tempfile
 from telethon.tl.types import DocumentAttributeFilename
 from telethon.tl.functions.channels import JoinChannelRequest
-from telethon.tl.functions.messages import ImportChatInviteRequest
+from telethon.tl.functions.messages import ImportChatInviteRequest, ReadHistoryRequest
 import random
 # 导入人类行为模拟模块
 from human_simulator import simulate_join_behavior, simulate_human_browsing
 import logging.handlers
 import json
 import time
+from logging.handlers import TimedRotatingFileHandler
+import random
+
+# 每日消息限额设置 (新增)
+MAX_DAILY_MESSAGES = 2  # 每天最多转发50条消息
+daily_message_count = 0  # 当前日期已转发消息计数
+last_count_reset_date = datetime.now().date()  # 上次重置计数的日期
+
+# 消息转发冷却时间设置（新增）
+COOLDOWN_MINUTES = random.randint(10, 20)  # 转发后冷却10~20分钟
+last_forward_time = None  # 上次转发消息的时间
+
+# 检查是否可以发送更多消息 (新增)
+def can_send_more_messages():
+    """检查是否已达到每日消息限额，如需要则重置计数器"""
+    global daily_message_count, last_count_reset_date, last_forward_time
+    
+    # 检查日期是否变更，如果是新的一天则重置计数
+    today = datetime.now().date()
+    if today > last_count_reset_date:
+        logger.info(f"新的一天开始，重置消息计数。上一天共发送 {daily_message_count} 条消息")
+        daily_message_count = 0
+        last_count_reset_date = today
+    
+    # 检查是否超过每日限额
+    if daily_message_count >= MAX_DAILY_MESSAGES:
+        logger.warning(f"已达到每日消息限额 ({MAX_DAILY_MESSAGES})，今天不再转发更多消息")
+        return False
+    
+    # 检查是否在冷却时间内（新增）
+    if last_forward_time is not None:
+        cooldown_seconds = COOLDOWN_MINUTES * 60
+        elapsed_seconds = (datetime.now() - last_forward_time).total_seconds()
+        
+        if elapsed_seconds < cooldown_seconds:
+            remaining_minutes = (cooldown_seconds - elapsed_seconds) / 60
+            logger.info(f"正在冷却中，距离下次可转发还有 {remaining_minutes:.1f} 分钟")
+            return False
+        else:
+            logger.info(f"冷却时间已过，可以继续转发消息")
+    
+    return True
+
+# 增加消息计数 (新增)
+def increment_message_count():
+    """增加已发送消息计数并记录日志"""
+    global daily_message_count, last_forward_time
+    daily_message_count += 1
+    last_forward_time = datetime.now()  # 更新最后转发时间
+    
+    remaining = MAX_DAILY_MESSAGES - daily_message_count
+    logger.info(f"今日已转发 {daily_message_count}/{MAX_DAILY_MESSAGES} 条消息，剩余配额: {remaining} 条")
+    logger.info(f"已启动 {COOLDOWN_MINUTES} 分钟冷却时间，下次可转发时间: {(last_forward_time + timedelta(minutes=COOLDOWN_MINUTES)).strftime('%H:%M:%S')}")
+    
+    # 如果达到限额，发送通知
+    if daily_message_count == MAX_DAILY_MESSAGES:
+        logger.warning(f"已达到今日转发限额 ({MAX_DAILY_MESSAGES} 条)，等待明天继续")
+    
+    # 保存消息计数
+    save_message_count_data()
+
+# 保存消息计数数据
+def save_message_count_data():
+    """保存当前消息计数和日期到文件"""
+    data_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'message_count.json')
+    try:
+        data = {
+            'count': daily_message_count,
+            'date': last_count_reset_date.isoformat()
+        }
+        with open(data_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+        logger.debug(f"已保存消息计数数据: {daily_message_count} 条 (日期: {last_count_reset_date})")
+    except Exception as e:
+        logger.error(f"保存消息计数数据失败: {e}")
+
+# 加载消息计数数据
+def load_message_count_data():
+    """从文件加载消息计数和日期数据"""
+    global daily_message_count, last_count_reset_date
+    data_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'message_count.json')
+    
+    # 每次重启后重置消息计数
+    daily_message_count = 0
+    last_count_reset_date = datetime.now().date()
+    logger.info(f"程序重启后重置今日消息计数: {daily_message_count}/{MAX_DAILY_MESSAGES}")
+    
+    # 如果希望完全禁用持久化可以删除下面这段代码
+    # 但保留文件写入功能用于记录历史，即使我们不再读取它
+    if os.path.exists(data_file):
+        try:
+            # 仅用于日志记录历史计数
+            with open(data_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            saved_date = datetime.fromisoformat(data['date']).date()
+            saved_count = data['count']
+            logger.info(f"上次运行的消息计数为: {saved_count} (日期: {saved_date})，已忽略并重置为0")
+        except Exception as e:
+            logger.debug(f"读取历史计数文件失败: {e}")
+    else:
+        logger.info("未找到消息计数数据文件，使用初始值0")
 
 # 创建logs目录（如果不存在）
 logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
@@ -144,13 +245,22 @@ ADD_FOOTER = os.environ.get('ADD_FOOTER', 'True').lower() in ['true', '1', 'yes'
 FOOTER_TEXT = os.environ.get('FOOTER_TEXT', '').strip()
 FORMAT_AS_HTML = os.environ.get('FORMAT_AS_HTML', 'False').lower() in ['true', '1', 'yes', 'y']
 
-# 是否使用joined_channels.json中的所有频道进行监控
-USE_JOINED_CHANNELS_FILE = os.environ.get('USE_JOINED_CHANNELS_FILE', 'True').lower() in ['true', '1', 'yes', 'y']
-
 # 标题过滤设置
 TITLE_FILTER = os.getenv('TITLE_FILTER', '')  # 标题过滤关键词，多个用逗号分隔，为空则不过滤
-# 将TITLE_KEYWORDS设置为空列表，禁用过滤功能
-TITLE_KEYWORDS = []
+# 将TITLE_KEYWORDS设置为提供的关键词列表
+TITLE_KEYWORDS = [
+    "https://t.me/", 
+    "私聊", 
+    "频道", 
+    "地址", 
+    "价格", 
+    "标签", 
+    "位置", 
+    "名字", 
+    "双向机器人", 
+    "电报", 
+    "艺名"
+]
 
 # 存储媒体组的字典，键为媒体组ID，值为该组的消息列表
 media_groups = {}
@@ -368,6 +478,58 @@ def load_joined_channels():
         logger.error(f"加载已加入频道记录失败: {e}")
         return []
 
+# 检查消息内容是否包含关键词
+def contains_keywords(text):
+    """检查文本是否包含关键词列表中的任何一个关键词，包括特殊格式如'关键词：值'的匹配"""
+    if not text:
+        return False
+    
+    # 首先进行直接匹配
+    for keyword in TITLE_KEYWORDS:
+        if keyword in text:
+            logger.info(f"找到关键词匹配: '{keyword}'")
+            return True
+    
+    # 然后检查特殊格式，如"名字：xxx"、"位置：xxx"等
+    special_formats = ["名字", "位置", "价格", "标签", "频道", "私聊", "艺名"]
+    for format_word in special_formats:
+        # 使用正则表达式匹配"关键词：值"或"关键词:"格式
+        pattern = f"{format_word}[：:].+"
+        if re.search(pattern, text):
+            logger.info(f"找到特殊格式匹配: '{format_word}：'")
+            return True
+    
+    return False
+
+# 获取消息的完整文本内容（包括文本、标题和实体）
+def get_full_message_text(message):
+    """获取消息的所有可能包含文本的内容"""
+    all_text = []
+    
+    # 添加主文本
+    if message.text:
+        all_text.append(message.text)
+    
+    # 添加消息标题（caption）
+    if hasattr(message, 'caption') and message.caption:
+        all_text.append(message.caption)
+    
+    # 如果消息有实体（如按钮、链接等），也提取其中的文本
+    if hasattr(message, 'entities') and message.entities:
+        for entity in message.entities:
+            if hasattr(entity, 'text') and entity.text:
+                all_text.append(entity.text)
+    
+    # 检查消息的其他可能属性
+    for attr in ['message', 'raw_text', 'content']:
+        if hasattr(message, attr) and getattr(message, attr):
+            content = getattr(message, attr)
+            if isinstance(content, str):
+                all_text.append(content)
+    
+    # 将所有文本合并为一个字符串
+    return "\n".join(all_text)
+
 async def main():
     # 创建用户客户端
     # 安全处理SESSION字符串
@@ -386,6 +548,9 @@ async def main():
         # SESSION字符串无效
         client = TelegramClient(StringSession(), API_ID, API_HASH)
         logger.info("会话字符串无效，创建新会话...")
+    
+    # 尝试加载消息计数数据
+    load_message_count_data()
     
     try:
         # 启动客户端，显式指定手机号输入方式
@@ -434,23 +599,6 @@ async def main():
     # 加载已加入的频道记录
     joined_channel_links = load_joined_channels()
     
-    # 将joined_channels.json的所有链接也添加到SOURCE_CHANNELS中
-    combined_source_channels = []
-    
-    # 首先添加环境变量中的SOURCE_CHANNELS
-    for ch in SOURCE_CHANNELS:
-        if ch.strip():
-            combined_source_channels.append(ch.strip())
-    
-    # 然后添加joined_channels.json中的链接
-    for ch in joined_channel_links:
-        if ch.strip() and ch.strip() not in combined_source_channels:
-            combined_source_channels.append(ch.strip())
-    
-    # 移除重复项
-    combined_source_channels = list(set(combined_source_channels))
-    logger.info(f"合并后将监控 {len(combined_source_channels)} 个频道/群组")
-    
     # 尝试自动加入源频道
     logger.info("尝试自动加入配置的源频道...")
     join_results = []
@@ -458,7 +606,7 @@ async def main():
     
     # 准备所有需要加入的频道列表
     channels_to_join = []
-    for ch_id in combined_source_channels:
+    for ch_id in SOURCE_CHANNELS:
         ch_id = ch_id.strip()
         if not ch_id:
             continue
@@ -913,10 +1061,26 @@ async def main():
                         message_type = 'document'
                 has_media = True
             
-            # 如果消息是纯文本且不包含媒体，则跳过转发
+            # 跳过纯文本消息
             if not has_media:
                 logger.info(f"跳过纯文本消息 (ID: {message.id}) - 根据设置只转发包含媒体的消息")
                 return
+            
+            # 获取完整的消息文本内容
+            full_message_text = get_full_message_text(message)
+            logger.info(f"消息 (ID: {message.id}) 完整文本内容: {full_message_text}")
+            
+            # 检查消息文本是否包含关键词
+            if not contains_keywords(full_message_text):
+                logger.info(f"跳过消息 (ID: {message.id}) - 不包含任何指定关键词，关键词列表: {TITLE_KEYWORDS}")
+                return
+            
+            # 检查每日消息限额 (新增)
+            if not can_send_more_messages():
+                logger.info(f"跳过消息 (ID: {message.id}) - 已达到每日转发限额 ({MAX_DAILY_MESSAGES})")
+                return
+                
+            logger.info(f"消息 (ID: {message.id}) 包含媒体且文本包含关键词，将进行转发")
             
             # 计算真实的阅读延迟（基于消息长度和类型）
             text_length = len(message.text) if message.text else 0
@@ -961,7 +1125,7 @@ async def main():
                 logger.info(f"检测到媒体组消息，组ID: {message.grouped_id}")
                 await handle_media_group(client, message, source_info, footer, destination_channel)
             else:
-                # 处理媒体消息 (已经确保了消息包含媒体)
+                # 处理媒体消息
                 logger.info(f"处理来自「{chat_name}」的媒体消息")
                 caption = message.text if message.text else ""
                 caption = caption + source_info + footer
@@ -983,13 +1147,15 @@ async def main():
                     
                     # 记录消息映射
                     messages_map[message_key] = sent_message.id
+                    
+                    # 增加消息计数 (新增)
+                    increment_message_count()
                 except Exception as e:
                     logger.error(f"转发媒体消息 {message.id} 失败: {e}")
-                
-                # 转发成功后添加小延迟，模拟人类行为
-                delay_after_send = random.uniform(0.8, 2.5)
-                logger.info(f"消息处理完成，等待 {delay_after_send:.1f} 秒...")
-                await asyncio.sleep(delay_after_send)
+            # 转发成功后添加小延迟，模拟人类行为
+            delay_after_send = random.uniform(0.8, 2.5)
+            logger.info(f"消息处理完成，等待 {delay_after_send:.1f} 秒...")
+            await asyncio.sleep(delay_after_send)
         except Exception as e:
             logger.error(f"处理消息时出错: {e}")
             
@@ -1010,13 +1176,37 @@ async def main():
             if message.media:
                 if isinstance(message.media, MessageMediaPhoto):
                     has_media = True
+                    message_type = 'photo'
                 elif isinstance(message.media, MessageMediaDocument):
                     has_media = True
+                    if hasattr(message.media.document, 'mime_type'):
+                        if 'video' in message.media.document.mime_type:
+                            message_type = 'video'
+                        elif 'audio' in message.media.document.mime_type:
+                            message_type = 'audio'
+                        else:
+                            message_type = 'document'
             
-            # 如果消息是纯文本且不包含媒体，则跳过转发
+            # 跳过纯文本消息
             if not has_media:
                 logger.info(f"跳过编辑的纯文本消息 (ID: {message.id}) - 根据设置只转发包含媒体的消息")
                 return
+            
+            # 获取完整的消息文本内容
+            full_message_text = get_full_message_text(message)
+            logger.info(f"编辑消息 (ID: {message.id}) 完整文本内容: {full_message_text[:100]}...")
+            
+            # 检查消息文本是否包含关键词
+            if not contains_keywords(full_message_text):
+                logger.info(f"跳过编辑的消息 (ID: {message.id}) - 不包含任何指定关键词")
+                return
+            
+            # 检查每日消息限额 (新增)
+            if not can_send_more_messages():
+                logger.info(f"跳过编辑的消息 (ID: {message.id}) - 已达到每日转发限额 ({MAX_DAILY_MESSAGES})")
+                return
+                
+            logger.info(f"编辑的消息 (ID: {message.id}) 包含媒体且文本包含关键词，将进行转发")
             
             # 检查是否之前已转发
             if message_key not in messages_map:
@@ -1050,6 +1240,9 @@ async def main():
                     parse_mode='html' if FORMAT_AS_HTML else None
                 )
                 logger.info(f"已转发编辑的媒体消息 (ID: {message.id}) 到目标频道")
+                
+                # 增加消息计数 (新增)
+                increment_message_count()
             except Exception as e:
                 logger.error(f"转发编辑的媒体消息失败: {e}")
                 
@@ -1070,9 +1263,15 @@ async def main():
     logger.info("高级转发机器人已启动，正在监控频道...")
     logger.info(f"监控的频道: {processed_source_channels}")
     logger.info(f"目标频道: {DESTINATION_CHANNEL}")
+    logger.info(f"每日消息配额: {MAX_DAILY_MESSAGES}条，今日已发送: {daily_message_count}条，剩余: {MAX_DAILY_MESSAGES - daily_message_count}条")
     
-    # 保持机器人运行
-    await client.run_until_disconnected()
+    try:
+        # 保持机器人运行
+        await client.run_until_disconnected()
+    finally:
+        # 确保在退出时保存消息计数
+        logger.info("保存消息计数数据并退出...")
+        save_message_count_data()
 
 async def handle_media_group(client, message, source_info, footer, destination_channel):
     """处理媒体组消息（多张图片/视频）"""
@@ -1208,9 +1407,14 @@ async def process_media_group_final(client, group_id):
         
         # 收集所有文本内容并合并
         all_texts = []
+        full_texts = []
         for msg in group_messages:
             if msg.text and msg.text.strip():
                 all_texts.append(msg.text.strip())
+            # 使用完整的文本提取函数
+            full_msg_text = get_full_message_text(msg)
+            if full_msg_text.strip():
+                full_texts.append(full_msg_text.strip())
         
         # 去重并合并文本
         unique_texts = []
@@ -1220,6 +1424,34 @@ async def process_media_group_final(client, group_id):
         
         # 构建最终标题
         caption_text = "\n\n".join(unique_texts)
+        
+        # 检查媒体组消息文本是否包含关键词
+        has_keywords = False
+        # 先检查提取的常规文本
+        for text in unique_texts:
+            if contains_keywords(text):
+                has_keywords = True
+                logger.info(f"媒体组 {group_id} 中的消息文本包含关键词")
+                break
+        
+        # 如果常规文本没有关键词，再检查完整提取的文本
+        if not has_keywords:
+            for text in full_texts:
+                if contains_keywords(text):
+                    has_keywords = True
+                    logger.info(f"媒体组 {group_id} 中的消息完整文本包含关键词")
+                    break
+        
+        if not has_keywords:
+            logger.info(f"跳过媒体组 {group_id} - 不包含任何指定关键词")
+            return
+        
+        # 检查每日消息限额 (新增)
+        if not can_send_more_messages():
+            logger.info(f"跳过媒体组 {group_id} - 已达到每日转发限额 ({MAX_DAILY_MESSAGES})")
+            return
+            
+        # 添加源信息和页脚
         if caption_text:
             caption_text += source_info + footer
         else:
@@ -1296,6 +1528,9 @@ async def process_media_group_final(client, group_id):
                         message_key = f"{original_msg.chat_id}_{original_msg.id}"
                         messages_map[message_key] = sent.id
                     logger.info(f"已将 {len(media_files)} 个媒体作为组发送成功（来自「{chat_name}」）")
+                
+                # 媒体组只记为一条消息 (新增)
+                increment_message_count()
             except Exception as e:
                 logger.error(f"作为组发送媒体失败: {e}")
                 
@@ -1323,6 +1558,11 @@ async def process_media_group_final(client, group_id):
                         
                         success_count += 1
                         logger.info(f"已单独发送第 {i+1}/{len(media_files)} 个媒体")
+                        
+                        # 不增加消息计数，保留最后一次计数
+                        if i == len(media_files) - 1:
+                            increment_message_count()
+                            
                         await asyncio.sleep(0.5)
                     except Exception as e2:
                         logger.error(f"单独发送媒体 {i+1} 也失败: {e2}")

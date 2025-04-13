@@ -334,9 +334,19 @@ class HumanBehaviorSimulator:
                 # 首先暂停模拟阅读时间
                 await asyncio.sleep(reading_time)
                 
+                # 人类阅读行为：有时会在阅读过程中分心或暂停
+                if random.random() < 0.15:  # 15%的几率出现阅读中断
+                    distraction_time = random.uniform(1.0, 5.0)
+                    logger.debug(f"模拟阅读中分心 {distraction_time:.1f} 秒")
+                    await asyncio.sleep(distraction_time)
+                
                 # 检查是否应该标记已读
                 if await should_execute_api("read_history", channel_entity):
                     try:
+                        # 模拟人类标记已读前的反应时间（先阅读，再标记）
+                        reaction_time = random.uniform(0.2, 0.7)
+                        await asyncio.sleep(reaction_time)
+                        
                         # 调用API真正将消息标记为已读
                         api_wait = await api_limiter.wait_if_needed("read_history", min_interval=3.5, jitter=1.5, channel_id=channel_id)
                         if api_wait >= 0:  # 如果没有被跳过
@@ -394,14 +404,50 @@ class HumanBehaviorSimulator:
                     )
                     if more_messages:
                         logger.info(f"加载额外 {len(more_messages)} 条消息")
-                        # 为简化代码，这里不再递归处理这些消息，而是简单浏览
-                        avg_reading_time = sum(HumanBehaviorSimulator._calculate_reading_time(msg) * 0.6 for msg in more_messages)
-                        await asyncio.sleep(avg_reading_time)
+                        
+                        # 模拟阅读新加载的消息
+                        for j, more_msg in enumerate(more_messages):
+                            more_reading_time = HumanBehaviorSimulator._calculate_reading_time(more_msg) * 0.7  # 滚动加载后通常阅读更快
+                            logger.debug(f"阅读加载的额外消息 {j+1}/{len(more_messages)}，停留 {more_reading_time:.1f} 秒")
+                            await asyncio.sleep(more_reading_time)
+                            
+                            # 标记额外加载的消息为已读
+                            if await should_execute_api("read_history", channel_entity):
+                                try:
+                                    await asyncio.sleep(random.uniform(0.1, 0.5))  # 反应时间
+                                    api_wait = await api_limiter.wait_if_needed("read_history", min_interval=2.5, jitter=1.0, channel_id=channel_id)
+                                    if api_wait >= 0:
+                                        await client(ReadHistoryRequest(
+                                            peer=channel_entity,
+                                            max_id=more_msg.id
+                                        ))
+                                        logger.debug(f"额外加载的消息 {more_msg.id} 已标记为已读")
+                                except Exception as e:
+                                    logger.debug(f"标记额外消息为已读失败: {e}")
             
             # 模拟离开频道前的最后操作 - 例如回到频道顶部
             if random.random() < 0.2:  # 降低概率到20%
                 logger.info("模拟返回频道顶部...")
                 await asyncio.sleep(random.uniform(0.5, 1.5))
+                
+                # 有时候回到顶部后会查看最新消息并标记为已读
+                if random.random() < 0.5 and await should_execute_api("read_history", channel_entity):
+                    try:
+                        # 获取最新消息ID
+                        latest_check = await client.get_messages(channel_entity, limit=1)
+                        if latest_check and len(latest_check) > 0:
+                            latest_id = latest_check[0].id
+                            
+                            # 标记最新消息为已读，表示"离开前查看最新状态"
+                            api_wait = await api_limiter.wait_if_needed("read_history", min_interval=2.0, jitter=1.0, channel_id=channel_id)
+                            if api_wait >= 0:
+                                await client(ReadHistoryRequest(
+                                    peer=channel_entity,
+                                    max_id=latest_id
+                                ))
+                                logger.debug(f"离开前标记最新消息 {latest_id} 为已读")
+                    except Exception as e:
+                        logger.debug(f"离开前标记最新消息失败: {e}")
             
             logger.info(f"频道 {channel_title} 浏览完成")
             
@@ -440,6 +486,44 @@ class HumanBehaviorSimulator:
             logger.debug(f"计算阅读时间时出错: {e}")
             # 发生错误时返回一个随机的默认值
             return random.uniform(1.5, 3.0)
+
+    @staticmethod
+    async def batch_mark_as_read(client, channel_entity, message_ids, reason="batch"):
+        """批量标记消息为已读，更符合真实用户行为"""
+        if not message_ids:
+            return False
+            
+        channel_id = getattr(channel_entity, 'id', None)
+        try:
+            # 检查是否应该执行此API调用
+            if not await should_execute_api("read_history", channel_entity):
+                logger.debug(f"跳过批量标记已读操作 ({reason}): API调用决策")
+                return False
+                
+            # 获取最大的消息ID（最新的消息）
+            max_id = max(message_ids)
+            
+            # 限制API调用频率
+            api_wait = await api_limiter.wait_if_needed("read_history", min_interval=3.0, jitter=1.5, channel_id=channel_id)
+            if api_wait < 0:  # 如果被跳过
+                logger.debug(f"跳过批量标记已读操作 ({reason}): API频率限制")
+                return False
+                
+            # 添加一个模拟反应时间
+            await asyncio.sleep(random.uniform(0.3, 0.8))
+            
+            # 执行读取历史记录请求
+            await client(ReadHistoryRequest(
+                peer=channel_entity,
+                max_id=max_id
+            ))
+            
+            logger.info(f"批量标记 {len(message_ids)} 条消息为已读 (最大ID: {max_id}), 原因: {reason}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"批量标记消息为已读失败 ({reason}): {str(e)}")
+            return False
 
 # 对外暴露的简便接口
 async def simulate_human_browsing(client, channel, intensity='medium'):
