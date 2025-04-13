@@ -17,11 +17,9 @@ import tempfile
 import time
 
 # 配置日志
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# 使用和advanced_forwarder.py相同的日志配置
+# 假设日志已经在其他文件中配置好了，我们只需获取相同的logger
+logger = logging.getLogger()
 
 # 加载环境变量
 load_dotenv()
@@ -592,4 +590,41 @@ async def main():
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
+    # 如果运行该文件作为主程序，确保日志配置正确
+    if not logger.handlers:
+        # 创建logs目录（如果不存在）
+        logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
+        
+        # 清除已有的处理器
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        
+        # 创建一个命令行处理器
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(console_format)
+        logger.addHandler(console_handler)
+        
+        # 创建一个按天轮转的文件处理器
+        log_file_path = os.path.join(logs_dir, 'telegram_group_simulator.log')
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            filename=log_file_path,
+            when='midnight',  # 每天午夜切换到新文件
+            interval=1,       # 间隔为1天
+            backupCount=30,   # 保留30天的日志
+            encoding='utf-8'  # 使用UTF-8编码
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.suffix = "%Y-%m-%d.log"  # 日志文件后缀格式
+        file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_format)
+        logger.addHandler(file_handler)
+        
+        # 记录程序启动消息
+        logger.info("=" * 50)
+        logger.info("群组聊天模拟器启动 - %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        logger.info("=" * 50)
+    
     asyncio.run(main()) 

@@ -123,4 +123,86 @@ SOURCE_CHANNELS=-1001234567890,https://t.me/channelname,https://t.me/+ABCDEFG
 
 1. 保持 `.env` 文件安全，不要分享您的 API 凭证和会话字符串
 2. 此工具使用您的用户账户，所以任何操作都会以您的名义进行
-3. 频繁使用自动化工具可能导致您的账户被 Telegram 限制 
+3. 频繁使用自动化工具可能导致您的账户被 Telegram 限制
+
+# Telegram Bot 日志系统
+
+这是一个为Telegram Bot设计的日志系统，能够自动记录并管理按日期分类的日志文件。
+
+## 系统组成
+
+1. **日志配置**：已集成到主程序中，会自动将日志按天存储
+2. **日志管理工具**：提供了一个专门的`log_manager.py`工具用于管理日志
+
+## 特性
+
+- **按天记录日志**：日志会自动按天分割存储
+- **保留历史日志**：默认保留30天的日志历史
+- **支持多种日志级别**：INFO, WARNING, ERROR等
+- **便捷的日志分析**：提供统计、搜索和过滤功能
+
+## 如何使用
+
+### 日志管理工具
+
+`log_manager.py` 是一个功能完整的命令行工具，使用方法如下：
+
+```bash
+# 列出所有日志文件
+python log_manager.py --action list
+
+# 查看特定日期的日志
+python log_manager.py --action view --date 2025-04-13
+
+# 查看并过滤日志
+python log_manager.py --action view --date 2025-04-13 --filter "error"
+
+# 导入已有的日志
+python log_manager.py --action import --input example.log
+
+# 统计最近7天的日志情况
+python log_manager.py --action stats --days 7
+
+# 清理7天前的日志
+python log_manager.py --action clean --days 7
+```
+
+### 在程序中使用日志
+
+日志系统已经集成到程序中，您可以直接使用：
+
+```python
+# 创建日志消息
+logger.info("这是一条普通消息")
+logger.warning("这是一条警告消息") 
+logger.error("这是一条错误消息")
+```
+
+## 日志文件位置
+
+日志文件存储在`logs`目录下，按日期命名：
+
+- `telegram_YYYY-MM-DD.log` - 常规日志文件
+- `telegram_error_YYYY-MM-DD.log` - 错误专用日志 (仅包含ERROR级别及以上)
+
+## 日志系统维护
+
+- 定期执行清理命令，避免日志占用过多磁盘空间
+- 在排查问题时，可以使用统计功能快速定位常见错误
+
+## 日志格式
+
+标准日志格式为：
+```
+YYYY-MM-DD HH:MM:SS,SSS - 组件名称 - 日志级别 - 日志消息
+```
+
+例如：
+```
+2025-04-13 04:30:25,805 - telethon.network.connection.connection - INFO - Connection established
+```
+
+## 注意事项
+
+- 日志文件使用UTF-8编码，确保所有文本显示正确
+- 日志分析功能依赖正确的日志格式，自定义日志可能导致分析结果不准确 

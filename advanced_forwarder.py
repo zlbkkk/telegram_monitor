@@ -19,13 +19,109 @@ from telethon.tl.functions.messages import ImportChatInviteRequest
 import random
 # 导入人类行为模拟模块
 from human_simulator import simulate_join_behavior, simulate_human_browsing
+import logging.handlers
+import json
+
+# 创建logs目录（如果不存在）
+logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+os.makedirs(logs_dir, exist_ok=True)
+
+# 创建一个倒序写入日志的处理器
+class ReverseFileHandler(logging.FileHandler):
+    """倒序写入日志的文件处理器，最新的日志会出现在文件的顶部"""
+    
+    def __init__(self, filename, mode='a', encoding=None, delay=False, max_cache_records=100):
+        """
+        初始化处理器
+        filename: 日志文件路径
+        max_cache_records: 内存中缓存的最大日志记录数，达到此数量会刷新到文件
+        """
+        super().__init__(filename, mode, encoding, delay)
+        self.max_cache_records = max_cache_records
+        self.log_records = []  # 用于缓存日志记录
+        
+        # 如果文件已存在，先读取现有内容
+        self.existing_logs = []
+        if os.path.exists(filename) and os.path.getsize(filename) > 0:
+            try:
+                with open(filename, 'r', encoding=encoding or 'utf-8') as f:
+                    self.existing_logs = f.readlines()
+            except Exception:
+                self.existing_logs = []
+    
+    def emit(self, record):
+        """重写emit方法，将日志记录缓存起来"""
+        try:
+            msg = self.format(record)
+            self.log_records.append(msg + self.terminator)
+            
+            # 当缓存的记录达到最大数量时，写入文件
+            if len(self.log_records) >= self.max_cache_records:
+                self.flush()
+        except Exception:
+            self.handleError(record)
+    
+    def flush(self):
+        """将缓存的日志写入文件，新日志在前面"""
+        if self.log_records:
+            try:
+                # 在文件模式为'w'的情况下，先将新日志写入文件
+                with open(self.baseFilename, 'w', encoding=self.encoding) as f:
+                    # 写入新的日志记录（倒序）
+                    for record in reversed(self.log_records):
+                        f.write(record)
+                    # 写入旧的日志记录
+                    for line in self.existing_logs:
+                        f.write(line)
+                
+                # 将新日志添加到现有日志的前面
+                self.existing_logs = self.log_records + self.existing_logs
+                self.log_records = []
+            except Exception as e:
+                # 如果出错，退回到标准写入方式
+                print(f"倒序写入日志失败: {e}，使用标准方式写入")
+                with open(self.baseFilename, 'a', encoding=self.encoding) as f:
+                    for record in self.log_records:
+                        f.write(record)
+                self.log_records = []
+    
+    def close(self):
+        """关闭处理器时刷新所有日志"""
+        self.flush()
+        super().close()
 
 # 配置日志
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+# 创建一个日志记录器
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# 清除已有的处理器
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+# 创建一个命令行处理器
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(console_format)
+logger.addHandler(console_handler)
+
+# 创建一个按天命名的倒序日志文件处理器
+today_date = datetime.now().strftime("%Y-%m-%d")
+log_file_path = os.path.join(logs_dir, f'telegram_forwarder_{today_date}.log')
+file_handler = ReverseFileHandler(
+    filename=log_file_path,
+    encoding='utf-8'
 )
-logger = logging.getLogger(__name__)
+file_handler.setLevel(logging.INFO)
+file_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_format)
+logger.addHandler(file_handler)
+
+# 记录程序启动消息
+logger.info("=" * 50)
+logger.info("高级转发机器人启动 - %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+logger.info("=" * 50)
 
 # 加载环境变量
 load_dotenv()
@@ -57,23 +153,108 @@ media_groups = {}
 class HumanLikeSettings:
     # 模拟人类操作的间隔时间范围（秒）
     JOIN_DELAY_MIN = 30  # 加入频道最小延迟
-    JOIN_DELAY_MAX = 50  # 加入频道最大延迟，增加延迟上限更接近人类
+    JOIN_DELAY_MAX = 70  # 加入频道最大延迟，增加延迟上限更接近人类
     
     # 有时人类会暂停很长时间，模拟上厕所、接电话等
-    LONG_BREAK_CHANCE = 0.2  # 20%的几率会有一个长时间暂停
+    LONG_BREAK_CHANCE = 0.25  # 25%的几率会有一个长时间暂停
     LONG_BREAK_MIN = 60  # 长暂停最小时间（秒）
-    LONG_BREAK_MAX = 90  # 长暂停最大时间（秒）
+    LONG_BREAK_MAX = 60  # 长暂停最大时间（秒）
+    
+    # 模拟人类活跃和非活跃时间段
+    ACTIVE_HOURS_START = 7  # 活跃时间开始（24小时制）
+    ACTIVE_HOURS_END = 23   # 活跃时间结束（24小时制）
+    NIGHT_SLOWDOWN_FACTOR = 2.5  # 非活跃时段延迟倍率
+    
+    # 不同类型消息的阅读时间，根据内容长度调整
+    TEXT_READ_SPEED = 0.03  # 每个字符的阅读时间（秒）
+    TEXT_READ_BASE = 1.5    # 基础阅读时间（秒）
+    IMAGE_VIEW_MIN = 3.0    # 查看图片的最小时间（秒）
+    IMAGE_VIEW_MAX = 8.0    # 查看图片的最大时间（秒）
+    VIDEO_VIEW_FACTOR = 0.3 # 视频持续时间的观看比例（看一个30秒视频可能会花10秒）
     
     # 消息转发的延迟
-    FORWARD_DELAY_MIN = 2   # 消息转发最小延迟
-    FORWARD_DELAY_MAX = 10  # 消息转发最大延迟
+    FORWARD_DELAY_MIN = 3   # 消息转发最小延迟
+    FORWARD_DELAY_MAX = 15  # 消息转发最大延迟
+    
+    # 人类偶尔会中断操作或改变注意力
+    ATTENTION_SHIFT_CHANCE = 0.15  # 15%的几率会暂时分心
+    ATTENTION_SHIFT_MIN = 10  # 分心的最小时间（秒）
+    ATTENTION_SHIFT_MAX = 40  # 分心的最大时间（秒）
+    
+    # 输入和交互的速度变化
+    TYPING_SPEED_MIN = 0.05  # 最快打字速度（每字符秒数）
+    TYPING_SPEED_MAX = 0.15  # 最慢打字速度（每字符秒数）
     
     # 不再跳过任何消息，确保全部转发
     SKIP_MESSAGE_CHANCE = 0.0  # 设置为0，禁用随机跳过功能
     
     # 在转发大量媒体时设置随机间隔
     MEDIA_BATCH_DELAY_MIN = 0.5
-    MEDIA_BATCH_DELAY_MAX = 3.0
+    MEDIA_BATCH_DELAY_MAX = 5.0
+    
+    # 周期性活跃度变化（模拟工作日/周末模式）
+    WEEKEND_ACTIVITY_BOOST = 1.3  # 周末活跃度提升
+    MONDAY_ACTIVITY_DROP = 0.7    # 周一活跃度下降
+    
+    @staticmethod
+    def calculate_reading_time(message_length, has_media=False, media_type=None):
+        """根据消息长度和媒体类型计算真实的阅读时间"""
+        # 基础阅读时间
+        base_time = HumanLikeSettings.TEXT_READ_BASE
+        
+        # 文字阅读时间（随内容长度增加）
+        if message_length > 0:
+            text_time = message_length * HumanLikeSettings.TEXT_READ_SPEED
+            base_time += text_time
+        
+        # 媒体查看时间
+        if has_media:
+            if media_type == 'photo':
+                base_time += random.uniform(HumanLikeSettings.IMAGE_VIEW_MIN, HumanLikeSettings.IMAGE_VIEW_MAX)
+            elif media_type == 'video':
+                # 假设视频长度，根据大小或实际长度调整
+                video_duration = random.randint(10, 60)  # 假设10-60秒的视频
+                base_time += video_duration * HumanLikeSettings.VIDEO_VIEW_FACTOR
+            else:
+                base_time += random.uniform(2.0, 6.0)  # 其他媒体类型
+        
+        # 加入一点随机变化
+        randomness = random.uniform(0.8, 1.2)
+        return base_time * randomness
+    
+    @staticmethod
+    def should_take_break():
+        """判断是否应该模拟休息"""
+        return random.random() < HumanLikeSettings.LONG_BREAK_CHANCE
+    
+    @staticmethod
+    def get_break_time():
+        """获取休息时间长度"""
+        return random.uniform(HumanLikeSettings.LONG_BREAK_MIN, HumanLikeSettings.LONG_BREAK_MAX)
+    
+    @staticmethod
+    def adjust_delay_for_time_of_day():
+        """根据一天中的时间调整延迟"""
+        current_hour = datetime.now().hour
+        
+        # 检查是否在活跃时间范围内
+        if HumanLikeSettings.ACTIVE_HOURS_START <= current_hour < HumanLikeSettings.ACTIVE_HOURS_END:
+            return 1.0  # 活跃时间，正常延迟
+        else:
+            # 非活跃时间，增加延迟
+            return HumanLikeSettings.NIGHT_SLOWDOWN_FACTOR
+    
+    @staticmethod
+    def adjust_delay_for_day_of_week():
+        """根据星期几调整活跃度"""
+        day_of_week = datetime.now().weekday()  # 0=周一，6=周日
+        
+        if day_of_week == 0:  # 周一
+            return HumanLikeSettings.MONDAY_ACTIVITY_DROP
+        elif day_of_week >= 5:  # 周末
+            return HumanLikeSettings.WEEKEND_ACTIVITY_BOOST
+        else:  # 普通工作日
+            return 1.0
 
 # 辅助函数：从链接中提取邀请哈希
 def extract_invite_hash(link):
@@ -122,6 +303,35 @@ def extract_username(link):
         return username
     
     return None
+
+# 存储已加入频道的记录文件
+def save_joined_channels(channel_links):
+    """保存已加入的频道链接到文件"""
+    channels_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'joined_channels.json')
+    try:
+        with open(channels_file, 'w', encoding='utf-8') as f:
+            json.dump(channel_links, f, ensure_ascii=False, indent=2)
+        logger.info(f"已保存 {len(channel_links)} 个已加入频道的记录")
+        return True
+    except Exception as e:
+        logger.error(f"保存已加入频道记录失败: {e}")
+        return False
+
+def load_joined_channels():
+    """从文件加载已加入的频道链接"""
+    channels_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'joined_channels.json')
+    if not os.path.exists(channels_file):
+        logger.info("未找到已加入频道的记录文件，将创建新记录")
+        return []
+    
+    try:
+        with open(channels_file, 'r', encoding='utf-8') as f:
+            joined_channels = json.load(f)
+        logger.info(f"已加载 {len(joined_channels)} 个已加入频道的记录")
+        return joined_channels
+    except Exception as e:
+        logger.error(f"加载已加入频道记录失败: {e}")
+        return []
 
 async def main():
     # 创建用户客户端
@@ -186,6 +396,9 @@ async def main():
         logger.error(f"登录过程出错: {e}")
         return
     
+    # 加载已加入的频道记录
+    joined_channel_links = load_joined_channels()
+    
     # 尝试自动加入源频道
     logger.info("尝试自动加入配置的源频道...")
     join_results = []
@@ -197,6 +410,22 @@ async def main():
         ch_id = ch_id.strip()
         if not ch_id:
             continue
+        
+        # 检查是否已有记录
+        if ch_id in joined_channel_links:
+            logger.info(f"跳过已记录加入的频道: {ch_id}")
+            # 尝试直接获取实体
+            try:
+                # 获取频道实体
+                entity = await client.get_entity(ch_id)
+                raw_source_channels.append(entity.id)
+                logger.info(f"已从记录中恢复频道: {entity.title} (ID: {entity.id})")
+                join_results.append(f"✅ 已从记录中恢复: {entity.title}")
+                continue
+            except Exception as e:
+                logger.warning(f"无法从记录恢复频道 {ch_id}: {e}")
+                # 如果无法恢复，则添加到待加入列表
+                
         channels_to_join.append(ch_id)
     
     # 显示准备加入的频道总数
@@ -204,6 +433,8 @@ async def main():
     
     # 处理每个频道，添加随机延迟
     channels_processed = 0
+    newly_joined_channel_links = []  # 新加入的频道链接
+    
     for ch_id in channels_to_join:
         channels_processed += 1
         
@@ -222,6 +453,24 @@ async def main():
         is_link = ('t.me/' in ch_id.lower() or 'telegram.me/' in ch_id.lower())
         
         try:
+            # 首先检查是否已加入此频道，无论链接格式如何
+            # 对于链接形式，尝试直接获取实体
+            try:
+                test_entity = await client.get_entity(ch_id)
+                if test_entity:
+                    logger.info(f"检测到已经是频道成员，无需重复加入: {test_entity.title if hasattr(test_entity, 'title') else ch_id}")
+                    join_results.append(f"✅ 已是频道成员: {test_entity.title if hasattr(test_entity, 'title') else ch_id}")
+                    raw_source_channels.append(test_entity.id if hasattr(test_entity, 'id') else test_entity)
+                    newly_joined_channel_links.append(ch_id)
+                    
+                    # 对已加入的频道进行轻度浏览模拟
+                    logger.info("对已加入频道进行简单浏览...")
+                    await simulate_human_browsing(client, test_entity, 'light')
+                    continue  # 已加入，跳过后续加入流程
+            except Exception as e:
+                # 获取实体失败，可能是未加入或其他原因，继续尝试加入
+                logger.info(f"频道 {ch_id} 可能尚未加入，将尝试加入: {e}")
+            
             if is_link:
                 logger.info(f"检测到频道链接: {ch_id}")
                 # 根据链接类型处理
@@ -251,22 +500,45 @@ async def main():
                                 success = True
                                 channel_id = result.chats[0].id
                                 channel_entity = result.chats[0]
-                                logger.info(f"成功通过邀请链接加入: {result.chats[0].title} (ID: {channel_id})")
+                                logger.info(f"成功通过邀请链接加入: 「{result.chats[0].title}」")
                                 join_results.append(f"✅ 已通过邀请链接加入: {result.chats[0].title}")
+                                # 记录新加入的频道链接
+                                newly_joined_channel_links.append(ch_id)
                         except Exception as e1:
+                            error_str = str(e1).lower()
                             logger.error(f"第一种方式加入失败: {e1}")
-                            # 如果错误是"已经是成员"，则视为成功
-                            if "already a participant" in str(e1).lower():
+                            
+                            # 检查是否是已经是成员的错误
+                            if "already a participant" in error_str:
                                 logger.info("用户已是频道成员，无需重复加入")
                                 success = True
                                 # 直接通过链接获取频道实体
                                 try:
                                     channel_entity = await client.get_entity(ch_id)
                                     channel_id = channel_entity.id
-                                    logger.info(f"成功获取已加入频道的实体: {channel_entity.title} (ID: {channel_id})")
+                                    logger.info(f"成功获取已加入频道的实体: 「{channel_entity.title}」")
                                     join_results.append(f"✅ 已是频道成员: {channel_entity.title}")
+                                    # 记录频道链接
+                                    newly_joined_channel_links.append(ch_id)
                                 except Exception as e_entity:
                                     logger.error(f"获取已加入频道实体失败: {e_entity}")
+                            # 处理已成功申请加入但需要管理员批准的情况
+                            elif "successfully requested to join" in error_str:
+                                logger.info(f"已成功申请加入频道，等待管理员批准: {ch_id}")
+                                join_results.append(f"⏳ 已申请加入，等待批准: {ch_id}")
+                                # 尝试获取频道的基本信息（即使未正式加入）
+                                try:
+                                    # 使用getFullChat API尝试获取基本信息
+                                    await asyncio.sleep(random.uniform(1.0, 2.0))
+                                    # 在这里不将此频道添加到source_channels，因为尚未正式加入
+                                    # 但我们记录这个链接，以便将来可能重试
+                                    newly_joined_channel_links.append(ch_id)
+                                    logger.info(f"已记录待批准的频道链接: {ch_id}")
+                                except Exception as e_info:
+                                    logger.debug(f"无法获取待批准频道的信息: {e_info}")
+                                
+                                # 在这种情况下我们认为"成功"发送了请求，但不认为已成功加入
+                                success = False
                             # 如果链接格式是+开头且尚未成功，尝试第二种方式
                             elif not success and '/+' in ch_id:
                                 try:
@@ -276,10 +548,19 @@ async def main():
                                     if channel_entity:
                                         success = True
                                         channel_id = channel_entity.id
-                                        logger.info(f"通过第二种方式成功获取频道实体: {channel_entity.title} (ID: {channel_id})")
+                                        logger.info(f"通过第二种方式成功获取频道实体: 「{channel_entity.title}」")
                                         join_results.append(f"✅ 已通过第二种方式加入: {channel_entity.title}")
+                                        # 记录频道链接
+                                        newly_joined_channel_links.append(ch_id)
                                 except Exception as e2:
                                     logger.error(f"第二种方式也失败了: {e2}")
+                                    
+                                    # 检查是否是因为已经发送了加入请求
+                                    if "successfully requested to join" in str(e2).lower():
+                                        logger.info(f"第二种方式确认已申请加入频道，等待批准: {ch_id}")
+                                        if not any(f"⏳ 已申请加入，等待批准: {ch_id}" in r for r in join_results):
+                                            join_results.append(f"⏳ 已申请加入，等待批准: {ch_id}")
+                                        newly_joined_channel_links.append(ch_id)
                         
                         # 如果成功获取到频道实体，添加到源频道列表并模拟浏览行为
                         if success and channel_entity:
@@ -301,6 +582,8 @@ async def main():
                         logger.info(f"找到私有频道: {channel_entity.title if hasattr(channel_entity, 'title') else invite_hash}")
                         join_results.append(f"✅ 已加入私有频道: {channel_entity.title if hasattr(channel_entity, 'title') else invite_hash}")
                         raw_source_channels.append(invite_hash)
+                        # 记录频道链接
+                        newly_joined_channel_links.append(ch_id)
                     except Exception as e:
                         logger.error(f"无法访问私有频道ID: {invite_hash}, 错误: {e}")
                         join_results.append(f"❌ 无法访问私有频道: {ch_id}")
@@ -310,6 +593,23 @@ async def main():
                     try:
                         # 首先尝试获取实体
                         channel_entity = await client.get_entity(username)
+                        
+                        # 检查是否已是成员
+                        try:
+                            # 尝试获取最近消息，如果能获取则说明已是成员
+                            test_message = await client.get_messages(channel_entity, limit=1)
+                            if test_message:
+                                logger.info(f"检测到已是频道 @{username} 成员，无需重复加入")
+                                join_results.append(f"✅ 已是频道成员: {channel_entity.title}")
+                                raw_source_channels.append(channel_entity.id)
+                                newly_joined_channel_links.append(ch_id)
+                                
+                                # 对已加入的频道进行轻度浏览模拟
+                                logger.info("对已加入频道进行简单浏览...")
+                                await simulate_human_browsing(client, channel_entity, 'light')
+                                continue  # 跳过加入步骤
+                        except Exception as e_test:
+                            logger.info(f"可能还未加入频道 @{username}: {e_test}")
                         
                         # 模拟人类行为：先查看频道信息，再加入
                         await asyncio.sleep(random.uniform(2.0, 5.0))
@@ -323,6 +623,8 @@ async def main():
                             logger.info(f"成功加入公开频道: {result.chats[0].title} (ID: {channel_id})")
                             join_results.append(f"✅ 已加入公开频道: {result.chats[0].title}")
                             raw_source_channels.append(channel_id)
+                            # 记录频道链接
+                            newly_joined_channel_links.append(ch_id)
                             
                             # 使用更真实的人类浏览行为代替简单延迟
                             logger.info("开始模拟人类浏览行为...")
@@ -331,8 +633,24 @@ async def main():
                             logger.warning(f"加入频道失败，返回结果中没有频道信息: {username}")
                             join_results.append(f"❌ 加入失败，无法获取频道信息: {username}")
                     except Exception as e:
-                        logger.error(f"通过用户名加入频道失败: @{username}, 错误: {e}")
-                        join_results.append(f"❌ 通过用户名加入频道失败: @{username}")
+                        # 检查错误信息是否表明已是成员
+                        if "ALREADY_PARTICIPANT" in str(e) or "already in the channel" in str(e).lower():
+                            logger.info(f"用户已是频道 @{username} 成员，无需重复加入")
+                            join_results.append(f"✅ 已是频道成员: @{username}")
+                            try:
+                                # 直接获取实体
+                                channel_entity = await client.get_entity(username)
+                                raw_source_channels.append(channel_entity.id)
+                                newly_joined_channel_links.append(ch_id)
+                                
+                                # 对已加入的频道进行轻度浏览模拟
+                                logger.info("对已加入频道进行简单浏览...")
+                                await simulate_human_browsing(client, channel_entity, 'light')
+                            except Exception as e_get:
+                                logger.error(f"获取已加入频道实体失败: {e_get}")
+                        else:
+                            logger.error(f"通过用户名加入频道失败: @{username}, 错误: {e}")
+                            join_results.append(f"❌ 通过用户名加入频道失败: @{username}")
                 else:
                     logger.warning(f"无法解析频道链接: {ch_id}")
                     join_results.append(f"❌ 无法解析频道链接: {ch_id}")
@@ -346,6 +664,8 @@ async def main():
                     logger.info(f"已经加入频道: {channel_entity.title if hasattr(channel_entity, 'title') else channel_id}")
                     join_results.append(f"✅ 已加入: {channel_entity.title if hasattr(channel_entity, 'title') else channel_id}")
                     raw_source_channels.append(channel_id)
+                    # 记录频道链接/ID
+                    newly_joined_channel_links.append(ch_id)
                     
                     # 对已加入的频道进行轻度浏览模拟
                     logger.info("对已加入频道进行简单浏览...")
@@ -364,6 +684,8 @@ async def main():
                             logger.info(f"成功加入频道: {result.chats[0].title} (ID: {channel_id})")
                             join_results.append(f"✅ 已加入: {result.chats[0].title}")
                             raw_source_channels.append(channel_id)
+                            # 记录频道链接/ID
+                            newly_joined_channel_links.append(ch_id)
                             
                             # 使用更真实的人类浏览行为
                             logger.info("开始模拟人类浏览行为...")
@@ -385,6 +707,14 @@ async def main():
             # 处理错误后添加延迟
             await asyncio.sleep(random.uniform(1.0, 2.0))
     
+    # 更新并保存已加入频道的记录
+    if newly_joined_channel_links:
+        # 合并旧记录和新加入的频道，使用集合去重
+        updated_channel_links = list(set(joined_channel_links + newly_joined_channel_links))
+        # 保存更新后的记录
+        save_joined_channels(updated_channel_links)
+        logger.info(f"已更新频道记录文件，共 {len(updated_channel_links)} 个频道链接")
+
     # 输出加入结果摘要
     logger.info("频道加入结果摘要:")
     for result in join_results:
@@ -410,7 +740,7 @@ async def main():
                     channel_entity = await client.get_entity(corrected_id)
                     channel_peer = get_peer_id(channel_entity)
                     processed_source_channels.append(channel_entity)
-                    logger.info(f"使用修正后的ID格式成功连接频道: {channel_entity.title} (ID: {corrected_id}, Peer ID: {channel_peer})")
+                    logger.info(f"使用修正后的ID格式成功连接频道: 「{channel_entity.title}」")
                     continue
                 except Exception as e:
                     # 修正格式后仍然失败，继续尝试原始ID
@@ -420,7 +750,7 @@ async def main():
             channel_entity = await client.get_entity(ch_id)
             channel_peer = get_peer_id(channel_entity)
             processed_source_channels.append(channel_entity)
-            logger.info(f"成功解析频道: {channel_entity.title} (ID: {ch_id}, Peer ID: {channel_peer})")
+            logger.info(f"成功解析频道: 「{channel_entity.title}」")
         except ValueError:
             logger.warning(f"无效的频道ID格式: {ch_id} - 将尝试作为原始ID使用")
             processed_source_channels.append(ch_id)
@@ -443,7 +773,7 @@ async def main():
         dest_id = int(DESTINATION_CHANNEL)
         logger.info(f"尝试连接目标频道: {dest_id}")
         destination_channel = await client.get_entity(dest_id)
-        logger.info(f"已连接到目标频道: {destination_channel.title if hasattr(destination_channel, 'title') else destination_channel.id}")
+        logger.info(f"已连接到目标频道: 「{destination_channel.title if hasattr(destination_channel, 'title') else destination_channel.id}」")
         
         # 发送测试消息以验证连接
         try:
@@ -458,50 +788,83 @@ async def main():
         logger.error("2. 频道ID正确")
         logger.error("3. 您有权限在该频道发送消息")
         return
+
+    # 显示监控的频道列表
+    logger.info("=== 开始监控以下频道 ===")
+    channel_count = 0
+    for channel in processed_source_channels:
+        channel_count += 1
+        try:
+            if hasattr(channel, 'title'):
+                logger.info(f"{channel_count}. 「{channel.title}」")
+            else:
+                logger.info(f"{channel_count}. ID: {channel}")
+        except:
+            logger.info(f"{channel_count}. 未知频道")
+    logger.info("========================")
     
     # 注册消息处理器
     @client.on(events.NewMessage(chats=processed_source_channels))
     async def forward_messages(event):
         try:
-            # 增加更详细的日志
-            logger.info(f"收到来自频道 {event.chat_id} 的新消息: {event.message.id}")
+            # 获取频道名称而非仅显示ID
+            source_chat = await event.get_chat()
+            chat_name = getattr(source_chat, 'title', f'未知频道 {event.chat_id}')
             
-            # 注释掉随机跳过功能，确保所有消息都被处理
-            # 模拟人类行为：有小概率跳过某些消息
-            # if random.random() < HumanLikeSettings.SKIP_MESSAGE_CHANCE:
-            #     logger.info("模拟人类行为：随机跳过此消息")
-            #     return
-            
-            # 模拟人类行为：增加随机延迟，像人类那样需要时间阅读消息
-            reading_delay = random.uniform(HumanLikeSettings.FORWARD_DELAY_MIN, HumanLikeSettings.FORWARD_DELAY_MAX)
-            logger.info(f"模拟阅读延迟: {reading_delay:.1f}秒")
-            await asyncio.sleep(reading_delay)
+            # 增加更详细的日志，显示频道名称
+            logger.info(f"收到来自频道「{chat_name}」的新消息: {event.message.id}")
             
             # 获取消息内容
             message = event.message
+            
+            # 确定消息类型，用于计算更真实的阅读时间
+            message_type = None
+            has_media = False
+            
+            if isinstance(message.media, MessageMediaPhoto):
+                message_type = 'photo'
+                has_media = True
+            elif isinstance(message.media, MessageMediaDocument):
+                if hasattr(message.media.document, 'mime_type'):
+                    if 'video' in message.media.document.mime_type:
+                        message_type = 'video'
+                    elif 'audio' in message.media.document.mime_type:
+                        message_type = 'audio'
+                    else:
+                        message_type = 'document'
+                has_media = True
+            
+            # 计算真实的阅读延迟（基于消息长度和类型）
+            text_length = len(message.text) if message.text else 0
+            reading_time = HumanLikeSettings.calculate_reading_time(text_length, has_media, message_type)
+            
+            # 应用时间段和星期因素调整
+            time_factor = HumanLikeSettings.adjust_delay_for_time_of_day()
+            day_factor = HumanLikeSettings.adjust_delay_for_day_of_week()
+            
+            # 最终阅读时间，结合一天中的时间和星期几
+            final_reading_time = reading_time * time_factor * day_factor
+            
+            # 随机决定是否添加"分心"延迟
+            if random.random() < HumanLikeSettings.ATTENTION_SHIFT_CHANCE:
+                distraction_time = random.uniform(HumanLikeSettings.ATTENTION_SHIFT_MIN, HumanLikeSettings.ATTENTION_SHIFT_MAX)
+                logger.info(f"模拟人类分心行为，暂停 {distraction_time:.1f} 秒")
+                final_reading_time += distraction_time
+            
+            logger.info(f"根据消息类型和长度，模拟真实阅读延迟: {final_reading_time:.1f}秒")
+            await asyncio.sleep(final_reading_time)
+            
+            # 模拟"打字"和处理时间 - 对于较长消息，添加额外处理时间
+            if text_length > 50 and not has_media:
+                typing_time = random.uniform(1.5, 4.0)
+                logger.info(f"模拟转发前的思考/处理时间: {typing_time:.1f}秒")
+                await asyncio.sleep(typing_time)
             
             # 记录消息，可能需要用于后续编辑更新
             message_key = f"{event.chat_id}_{event.message.id}"
             
             # 获取来源信息
-            source_chat = await event.get_chat()
             source_info = f"\n\n来源: {source_chat.title}" if INCLUDE_SOURCE and hasattr(source_chat, 'title') else ""
-            
-            # 注释掉标题过滤代码，确保所有消息都被转发
-            '''
-            # 检查标题是否包含过滤关键词
-            if TITLE_KEYWORDS and hasattr(source_chat, 'title'):
-                chat_title = source_chat.title.lower()
-                
-                # 如果标题不包含任何一个关键词，则跳过该消息
-                if not any(keyword.lower() in chat_title for keyword in TITLE_KEYWORDS):
-                    logger.info(f"频道标题 '{source_chat.title}' 不包含任何指定关键词，跳过该消息")
-                    return
-                
-                # 记录匹配情况
-                matched_keywords = [keyword for keyword in TITLE_KEYWORDS if keyword.lower() in chat_title]
-                logger.info(f"频道标题 '{source_chat.title}' 匹配关键词: {', '.join(matched_keywords)}")
-            '''
             
             # 获取页脚
             footer = f"\n\n{FOOTER_TEXT}" if ADD_FOOTER else ""
@@ -517,61 +880,103 @@ async def main():
                 # 处理普通消息
                 if message.media:
                     # 处理媒体消息
-                    logger.info("处理媒体消息=======================================================")
+                    logger.info(f"处理来自「{chat_name}」的媒体消息")
                     caption = message.text if message.text else ""
                     caption = caption + source_info + footer
                     
-                    # 重新发送媒体（不是转发）
-                    await client.send_file(
-                        destination_channel, 
-                        message.media,
-                        caption=caption[:1024],  # Telegram限制caption最多1024字符
-                        parse_mode='md'
-                    )
-                    logger.info("媒体消息发送成功")
-                elif message.text:
-                    # 处理纯文本消息
-                    logger.info("处理纯文本消息=====================================================")
-                    text = message.text + source_info + footer
+                    # 模拟上传准备时间
+                    upload_prep_time = random.uniform(0.5, 2.0)
+                    logger.info(f"模拟媒体上传准备时间: {upload_prep_time:.1f}秒")
+                    await asyncio.sleep(upload_prep_time)
                     
-                    # 重新发送文本（不是转发）
-                    await client.send_message(
-                        destination_channel,
-                        text,
-                        parse_mode='md',
-                        link_preview=True
-                    )
-                    logger.info("文本消息发送成功")
+                    # 重新发送媒体（不是转发）
+                    try:
+                        sent_message = await client.send_file(
+                            destination_channel,
+                            message.media,
+                            caption=caption,
+                            parse_mode='html' if FORMAT_AS_HTML else None
+                        )
+                        logger.info(f"已转发媒体消息 (ID: {message.id}) 到目标频道，新消息ID: {sent_message.id}")
+                        
+                        # 记录消息映射
+                        messages_map[message_key] = sent_message.id
+                    except Exception as e:
+                        logger.error(f"转发媒体消息 {message.id} 失败: {e}")
                 else:
-                    logger.warning(f"未知消息类型，无法处理: {message}")
+                    # 处理纯文本消息
+                    if message.text:
+                        text = message.text + source_info + footer
+                        
+                        # 模拟打字时间
+                        typing_time = random.uniform(0.3, 1.5)
+                        logger.info(f"模拟打字时间: {typing_time:.1f}秒")
+                        await asyncio.sleep(typing_time)
+                        
+                        try:
+                            # 直接发送新消息而不是转发
+                            sent_message = await client.send_message(
+                                destination_channel,
+                                text,
+                                parse_mode='html' if FORMAT_AS_HTML else None
+                            )
+                            logger.info(f"已转发文本消息 (ID: {message.id}) 到目标频道，新消息ID: {sent_message.id}")
+                            
+                            # 记录消息映射
+                            messages_map[message_key] = sent_message.id
+                        except Exception as e:
+                            logger.error(f"转发文本消息 {message.id} 失败: {e}")
+                    else:
+                        logger.warning(f"跳过空消息 (ID: {message.id})")
                 
-                logger.info(f"已发送消息内容（非转发）从ID {event.chat_id} 到目标频道")
+                # 转发成功后添加小延迟，模拟人类行为
+                delay_after_send = random.uniform(0.8, 2.5)
+                logger.info(f"消息处理完成，等待 {delay_after_send:.1f} 秒...")
+                await asyncio.sleep(delay_after_send)
         except Exception as e:
-            logger.error(f"发送消息时出错: {e}")
-            # 打印更详细的错误信息
-            import traceback
-            logger.error(traceback.format_exc())
-    
-    # 注册频道反应处理器（如点赞）
+            logger.error(f"处理消息时出错: {e}")
+            
+    # 注册编辑消息处理器
     @client.on(events.MessageEdited(chats=processed_source_channels))
-    async def handle_edits(event):
+    async def forward_edited_messages(event):
         try:
-            # 处理消息编辑
-            message_key = f"{event.chat_id}_{event.message.id}"
-            logger.info(f"检测到消息编辑，ID: {event.id}")
+            # 获取消息ID
+            message = event.message
+            message_key = f"{event.chat_id}_{message.id}"
             
-            # 已经注释掉随机忽略逻辑，确保所有编辑都被处理
-            # if random.random() < 0.3:
-            #     logger.info("模拟人类行为：忽略此编辑消息")
-            #     return
+            # 获取频道名称
+            source_chat = await event.get_chat()
+            chat_name = getattr(source_chat, 'title', f'未知频道 {event.chat_id}')
             
-            # 模拟阅读编辑消息的延迟
-            await asyncio.sleep(random.uniform(3.0, 10.0))
+            # 检查是否之前已转发
+            if message_key not in messages_map:
+                logger.info(f"从「{chat_name}」接收到编辑的消息，但未找到原始转发记录，将作为新消息处理")
+                # 转发为新消息
+                await forward_messages(event)
+                return
+                
+            # 找到对应的目标消息ID
+            dest_message_id = messages_map[message_key]
+            logger.info(f"从「{chat_name}」接收到编辑的消息 (ID: {message.id})，对应目标消息ID: {dest_message_id}")
             
-            # TODO: 实现编辑消息的处理逻辑，确保更新已转发的消息
-            # 这部分代码需要增加，以支持更新已发送的消息
+            # 获取来源信息
+            source_info = f"\n\n来源: {source_chat.title}" if INCLUDE_SOURCE and hasattr(source_chat, 'title') else ""
+            
+            # 获取页脚
+            footer = f"\n\n{FOOTER_TEXT}" if ADD_FOOTER else ""
+            
+            # 获取消息内容
+            message_content = message.text if message.text else ""
+            
+            # 创建新消息
+            new_message = message_content + source_info + footer
+            
+            # 发送新消息
+            await client.send_message(destination_channel, new_message, parse_mode='html' if FORMAT_AS_HTML else None)
+            
+            logger.info(f"已转发编辑的消息 (ID: {message.id}) 到目标频道，新消息ID: {dest_message_id}")
         except Exception as e:
-            logger.error(f"处理消息编辑时出错: {e}")
+            logger.error(f"处理编辑消息时出错: {e}")
     
     # 启动通知
     logger.info("高级转发机器人已启动，正在监控频道...")
