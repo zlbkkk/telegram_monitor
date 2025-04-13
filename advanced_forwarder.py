@@ -21,6 +21,7 @@ import random
 from human_simulator import simulate_join_behavior, simulate_human_browsing
 import logging.handlers
 import json
+import time
 
 # 创建logs目录（如果不存在）
 logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
@@ -137,10 +138,11 @@ SESSION = os.getenv('USER_SESSION', '')
 SOURCE_CHANNELS = os.getenv('SOURCE_CHANNELS', '').split(',')
 DESTINATION_CHANNEL = os.getenv('DESTINATION_CHANNEL')
 
-# 格式设置
-INCLUDE_SOURCE = os.getenv('INCLUDE_SOURCE', 'False').lower() == 'true'  # 是否在转发时包含来源信息
-ADD_FOOTER = os.getenv('ADD_FOOTER', 'False').lower() == 'true'  # 是否添加页脚
-FOOTER_TEXT = os.getenv('FOOTER_TEXT', '由机器人自动转发')  # 页脚文本
+# 消息格式选项
+INCLUDE_SOURCE = os.environ.get('INCLUDE_SOURCE', 'True').lower() in ['true', '1', 'yes', 'y']
+ADD_FOOTER = os.environ.get('ADD_FOOTER', 'True').lower() in ['true', '1', 'yes', 'y']
+FOOTER_TEXT = os.environ.get('FOOTER_TEXT', '').strip()
+FORMAT_AS_HTML = os.environ.get('FORMAT_AS_HTML', 'False').lower() in ['true', '1', 'yes', 'y']
 
 # 标题过滤设置
 TITLE_FILTER = os.getenv('TITLE_FILTER', '')  # 标题过滤关键词，多个用逗号分隔，为空则不过滤
@@ -150,10 +152,18 @@ TITLE_KEYWORDS = []
 # 存储媒体组的字典，键为媒体组ID，值为该组的消息列表
 media_groups = {}
 
+# 存储消息映射关系的字典，用于跟踪转发的消息
+# 键为 "原频道ID_原消息ID"，值为目标频道中的消息ID
+messages_map = {}
+
+# 转发行为设置
+FORWARD_MEDIA_GROUPS = os.environ.get('FORWARD_MEDIA_GROUPS', 'True').lower() in ['true', '1', 'yes', 'y']
+EDIT_FORWARDED_MESSAGES = os.environ.get('EDIT_FORWARDED_MESSAGES', 'True').lower() in ['true', '1', 'yes', 'y']
+
 class HumanLikeSettings:
     # 模拟人类操作的间隔时间范围（秒）
     JOIN_DELAY_MIN = 30  # 加入频道最小延迟
-    JOIN_DELAY_MAX = 70  # 加入频道最大延迟，增加延迟上限更接近人类
+    JOIN_DELAY_MAX = 60  # 加入频道最大延迟，增加延迟上限更接近人类
     
     # 有时人类会暂停很长时间，模拟上厕所、接电话等
     LONG_BREAK_CHANCE = 0.25  # 25%的几率会有一个长时间暂停
@@ -309,9 +319,24 @@ def save_joined_channels(channel_links):
     """保存已加入的频道链接到文件"""
     channels_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'joined_channels.json')
     try:
+        # 确保所有链接都是字符串，并移除可能的空项
+        channel_links = [ch for ch in channel_links if ch]
+        
+        # 标准化处理链接
+        normalized_links = []
+        for ch in channel_links:
+            if isinstance(ch, str):
+                normalized_links.append(ch.strip())
+            else:
+                # 如果不是字符串，转换为字符串
+                normalized_links.append(str(ch))
+        
+        # 移除重复项
+        normalized_links = list(set(normalized_links))
+        
         with open(channels_file, 'w', encoding='utf-8') as f:
-            json.dump(channel_links, f, ensure_ascii=False, indent=2)
-        logger.info(f"已保存 {len(channel_links)} 个已加入频道的记录")
+            json.dump(normalized_links, f, ensure_ascii=False, indent=2)
+        logger.info(f"已保存 {len(normalized_links)} 个已加入频道的记录")
         return True
     except Exception as e:
         logger.error(f"保存已加入频道记录失败: {e}")
@@ -327,6 +352,13 @@ def load_joined_channels():
     try:
         with open(channels_file, 'r', encoding='utf-8') as f:
             joined_channels = json.load(f)
+        
+        # 标准化链接格式
+        joined_channels = [ch.strip() for ch in joined_channels if ch and isinstance(ch, str)]
+        
+        # 移除重复项
+        joined_channels = list(set(joined_channels))
+        
         logger.info(f"已加载 {len(joined_channels)} 个已加入频道的记录")
         return joined_channels
     except Exception as e:
@@ -411,15 +443,42 @@ async def main():
         if not ch_id:
             continue
         
-        # 检查是否已有记录
-        if ch_id in joined_channel_links:
+        # 标准化处理频道链接进行比较
+        if 't.me/' in ch_id.lower() or 'telegram.me/' in ch_id.lower():
+            # 确保链接以https://开头
+            if not ch_id.startswith('http'):
+                if ch_id.startswith('t.me/'):
+                    ch_id = 'https://' + ch_id
+                elif ch_id.startswith('telegram.me/'):
+                    ch_id = 'https://' + ch_id
+        
+        # 检查是否已有记录 - 使用部分匹配而不是完全匹配
+        is_in_joined_list = False
+        for joined_ch in joined_channel_links:
+            # 1. 直接匹配
+            if ch_id == joined_ch:
+                is_in_joined_list = True
+                break
+                
+            # 2. 如果都是链接，但格式略有不同
+            if ('t.me/' in ch_id.lower() and 't.me/' in joined_ch.lower()):
+                # 提取t.me/后面的部分进行比较
+                ch_suffix = ch_id.lower().split('t.me/', 1)[1]
+                joined_suffix = joined_ch.lower().split('t.me/', 1)[1]
+                if ch_suffix == joined_suffix:
+                    is_in_joined_list = True
+                    ch_id = joined_ch  # 使用已记录的格式
+                    break
+        
+        # 根据是否已加入决定下一步
+        if is_in_joined_list:
             logger.info(f"跳过已记录加入的频道: {ch_id}")
             # 尝试直接获取实体
             try:
                 # 获取频道实体
                 entity = await client.get_entity(ch_id)
                 raw_source_channels.append(entity.id)
-                logger.info(f"已从记录中恢复频道: {entity.title} (ID: {entity.id})")
+                logger.info(f"已从记录中恢复频道: 「{entity.title}」")
                 join_results.append(f"✅ 已从记录中恢复: {entity.title}")
                 continue
             except Exception as e:
@@ -988,181 +1047,273 @@ async def main():
 
 async def handle_media_group(client, message, source_info, footer, destination_channel):
     """处理媒体组消息（多张图片/视频）"""
+    group_id = str(message.grouped_id)
+    message_key = f"{message.chat_id}_{message.id}"
+    
+    # 获取频道名称
+    chat = await client.get_entity(message.chat_id)
+    chat_name = getattr(chat, 'title', f'未知频道 {message.chat_id}')
+    
+    # 日志记录检测到的媒体组
+    logger.info(f"检测到来自「{chat_name}」的媒体组消息，组ID: {group_id}")
     
     # 为每个媒体组ID创建一个列表
-    if message.grouped_id not in media_groups:
-        media_groups[message.grouped_id] = []
+    if group_id not in media_groups:
+        media_groups[group_id] = {
+            'messages': [],
+            'source_info': source_info,
+            'footer': footer,
+            'destination': destination_channel,
+            'processing': False,
+            'last_update': time.time(),
+            'chat_name': chat_name
+        }
     
-    # 将当前消息添加到组中
-    media_groups[message.grouped_id].append(message)
+    # 更新最后活动时间
+    media_groups[group_id]['last_update'] = time.time()
     
-    # 等待更长时间，确保收集到媒体组的所有消息
-    # 这是因为Telegram发送媒体组时，消息可能不会同时到达
-    await asyncio.sleep(2)
+    # 将当前消息添加到组中，避免重复添加
+    if not any(m.id == message.id for m in media_groups[group_id]['messages']):
+        media_groups[group_id]['messages'].append(message)
+        logger.info(f"媒体组 {group_id} 添加一条新消息，目前收集了 {len(media_groups[group_id]['messages'])} 条")
     
-    # 创建任务处理媒体组
-    asyncio.create_task(process_media_group_delayed(client, message.grouped_id, source_info, footer, destination_channel))
+    # 如果该组已经在处理中，直接返回，避免重复处理
+    if media_groups[group_id]['processing']:
+        logger.info(f"媒体组 {group_id} 已经在处理中，跳过")
+        return
+    
+    # 标记为处理中，避免重复启动处理任务
+    media_groups[group_id]['processing'] = True
+    
+    # 创建一个处理任务，会自动等待足够的时间
+    asyncio.create_task(process_media_group_with_timeout(client, group_id))
 
-async def process_media_group_delayed(client, grouped_id, source_info, footer, destination_channel):
-    """延迟处理媒体组，确保收集到所有消息"""
-    
-    # 再等待一段时间，确保收集到所有媒体
-    await asyncio.sleep(3)
-    
-    # 检查该媒体组是否存在
-    if grouped_id not in media_groups:
-        logger.warning(f"找不到媒体组 {grouped_id}，可能已被处理")
-        return
-    
-    # 获取该组的所有消息并从字典中移除(避免重复处理)
-    group_messages = media_groups.pop(grouped_id)
-    
-    if not group_messages:
-        logger.warning(f"媒体组 {grouped_id} 中没有消息")
-        return
-        
-    # 记录找到的消息数量
-    logger.info(f"媒体组 {grouped_id} 收集到 {len(group_messages)} 条消息")
-    
-    # 按照ID排序，确保顺序正确
-    group_messages.sort(key=lambda x: x.id)
-    
-    # 获取消息的标题
-    caption_text = ""
-    for msg in group_messages:
-        if msg.text:
-            caption_text = msg.text + source_info + footer
-            break
-    
-    # 筛选出包含媒体的消息
-    media_messages = [msg for msg in group_messages if msg.media]
-    
-    # 如果没有媒体消息，直接返回
-    if not media_messages:
-        logger.warning("没有找到媒体消息")
-        return
-        
-    # 如果只有一个媒体，直接发送
-    if len(media_messages) == 1:
-        try:
-            msg = media_messages[0]
-            await client.send_file(
-                destination_channel,
-                file=msg.media,
-                caption=caption_text[:1024] if caption_text else None,
-                parse_mode='md',
-                force_document=False
-            )
-            logger.info("单个媒体已发送")
-        except Exception as e:
-            logger.error(f"单个媒体发送失败: {e}")
-        return
-    
+async def process_media_group_with_timeout(client, group_id):
+    """处理媒体组，使用自适应等待时间确保收集完整"""
     try:
-        logger.info(f"开始处理媒体组，共 {len(media_messages)} 个媒体")
+        # 初始等待时间，单位：秒
+        wait_time = 5
         
-        # 我们直接将所有媒体重新发送为一个群组，使用备用方法
-        # 首先需要获取所有原始媒体文件
+        # 连续几次消息数量相同的计数
+        stable_count = 0
+        last_count = 0
+        max_stable_count = 3  # 需要达到的稳定次数
+        
+        # 最多等待次数
+        max_wait_cycles = 10
+        wait_cycles = 0
+        
+        while wait_cycles < max_wait_cycles:
+            # 检查组是否依然存在
+            if group_id not in media_groups:
+                logger.warning(f"等待过程中媒体组 {group_id} 消失，可能已被处理")
+                return
+            
+            # 记录当前状态
+            group_data = media_groups[group_id]
+            current_count = len(group_data['messages'])
+            chat_name = group_data['chat_name']
+            
+            # 判断是否稳定（没有新消息进来）
+            if current_count == last_count:
+                stable_count += 1
+                logger.info(f"媒体组 {group_id} 从「{chat_name}」收集了 {current_count} 条消息，保持稳定 ({stable_count}/{max_stable_count})")
+            else:
+                # 收到新消息，重置稳定计数
+                stable_count = 0
+                logger.info(f"媒体组 {group_id} 从「{chat_name}」收集了 {current_count} 条消息（有新消息）")
+            
+            # 记录当前数量用于下次比较
+            last_count = current_count
+            
+            # 如果一段时间内消息数量稳定，则认为所有消息已收集完成
+            if stable_count >= max_stable_count:
+                logger.info(f"媒体组 {group_id} 的消息数量已稳定在 {current_count} 条，开始处理")
+                break
+            
+            # 检查自上次消息后经过的时间，如果超过15秒无新消息，也视为完成
+            elapsed = time.time() - group_data['last_update']
+            if elapsed > 15:
+                logger.info(f"媒体组 {group_id} 已超过15秒无新消息，视为收集完成")
+                break
+            
+            # 等待一段时间
+            logger.info(f"等待更多可能的媒体组消息，{wait_time}秒...")
+            await asyncio.sleep(wait_time)
+            wait_cycles += 1
+            
+            # 动态调整等待时间（逐渐减少）
+            wait_time = max(1, wait_time - 1)
+        
+        # 最终处理媒体组
+        await process_media_group_final(client, group_id)
+    except Exception as e:
+        logger.error(f"处理媒体组 {group_id} 时出错: {e}")
+        if group_id in media_groups:
+            # 出错时也清理，避免内存泄漏
+            del media_groups[group_id]
+
+async def process_media_group_final(client, group_id):
+    """最终处理媒体组，发送所有媒体"""
+    try:
+        # 检查组是否存在
+        if group_id not in media_groups:
+            logger.warning(f"处理前媒体组 {group_id} 消失，可能已被处理")
+            return
+            
+        # 获取组数据并从跟踪字典中移除
+        group_data = media_groups.pop(group_id)
+        group_messages = group_data['messages']
+        source_info = group_data['source_info']
+        footer = group_data['footer']
+        destination_channel = group_data['destination']
+        chat_name = group_data['chat_name']
+        
+        # 如果没有消息，直接返回
+        if not group_messages:
+            logger.warning(f"媒体组 {group_id} 没有消息可处理")
+            return
+            
+        # 按照ID排序，确保顺序正确
+        group_messages.sort(key=lambda x: x.id)
+        
+        # 收集所有文本内容并合并
+        all_texts = []
+        for msg in group_messages:
+            if msg.text and msg.text.strip():
+                all_texts.append(msg.text.strip())
+        
+        # 去重并合并文本
+        unique_texts = []
+        for text in all_texts:
+            if text not in unique_texts:
+                unique_texts.append(text)
+        
+        # 构建最终标题
+        caption_text = "\n\n".join(unique_texts)
+        if caption_text:
+            caption_text += source_info + footer
+        else:
+            caption_text = source_info + footer if (source_info or footer) else ""
+        
+        # 准备所有媒体
         media_files = []
+        temp_dir = tempfile.mkdtemp()
         
-        for i, msg in enumerate(media_messages):
-            try:
-                # 下载媒体到临时文件
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=get_media_extension(msg.media))
-                temp_path = temp_file.name
-                temp_file.close()
+        try:
+            # 收集并下载所有媒体文件
+            logger.info(f"开始处理来自「{chat_name}」的媒体组，共 {len(group_messages)} 条消息")
+            for i, msg in enumerate(group_messages):
+                if not msg.media:
+                    continue
                 
-                # 下载媒体
-                await client.download_media(msg.media, temp_path)
-                media_files.append(temp_path)
-                logger.info(f"已下载第 {i+1}/{len(media_messages)} 个媒体")
-            except Exception as e:
-                logger.error(f"下载媒体 {i+1} 失败: {e}")
-        
-        # 把所有媒体作为组发送
-        if media_files:
-            try:
-                # 将所有媒体文件作为一组发送
-                # 注意：在这里我们指定caption_text只在最后一个媒体上显示
-                logger.info(f"正在发送 {len(media_files)} 个媒体文件到目标频道...")
+                try:
+                    # 创建临时文件
+                    file_ext = get_media_extension(msg.media)
+                    temp_file = os.path.join(temp_dir, f"media_{i}{file_ext}")
+                    
+                    # 下载媒体
+                    await client.download_media(msg.media, temp_file)
+                    media_files.append(temp_file)
+                    logger.info(f"已下载来自「{chat_name}」的媒体 {i+1}/{len(group_messages)}")
+                except Exception as e:
+                    logger.error(f"下载媒体 {i+1}/{len(group_messages)} 失败: {e}")
+            
+            # 检查是否有媒体
+            if not media_files:
+                logger.warning(f"媒体组 {group_id} 中没有可用媒体文件")
+                return
                 
-                # 明确指定参数，确保媒体组正确发送
-                await client.send_file(
+            # 如果只有一个媒体文件，直接发送
+            if len(media_files) == 1:
+                try:
+                    sent = await client.send_file(
+                        destination_channel,
+                        file=media_files[0],
+                        caption=caption_text,
+                        parse_mode='html' if FORMAT_AS_HTML else None
+                    )
+                    logger.info(f"已发送来自「{chat_name}」的单个媒体")
+                    
+                    # 为每个原始消息记录映射关系
+                    for msg in group_messages:
+                        message_key = f"{msg.chat_id}_{msg.id}"
+                        messages_map[message_key] = sent.id
+                except Exception as e:
+                    logger.error(f"发送单个媒体失败: {e}")
+                return
+            
+            # 作为媒体组发送
+            try:
+                logger.info(f"正在将 {len(media_files)} 个媒体作为一组发送（来自「{chat_name}」）")
+                sent = await client.send_file(
                     entity=destination_channel,
                     file=media_files,
-                    caption=caption_text[:1024] if caption_text else None,
-                    parse_mode='md',
-                    force_document=False,  # 确保显示为媒体而非文件附件
-                    supports_streaming=True  # 支持视频流媒体播放
+                    caption=caption_text,  # 标题会自动添加到最后一个媒体
+                    parse_mode='html' if FORMAT_AS_HTML else None
                 )
-                logger.info(f"已将 {len(media_files)} 个媒体作为一组发送成功")
+                
+                # 记录映射关系
+                if isinstance(sent, list):
+                    # 如果返回的是消息列表，记录每个消息的映射
+                    for i, original_msg in enumerate(group_messages):
+                        if i < len(sent):
+                            message_key = f"{original_msg.chat_id}_{original_msg.id}"
+                            messages_map[message_key] = sent[i].id
+                    logger.info(f"已将 {len(media_files)} 个媒体作为组发送成功（来自「{chat_name}」），生成 {len(sent)} 条消息")
+                else:
+                    # 如果返回单个消息，将所有原始消息映射到这一个
+                    for original_msg in group_messages:
+                        message_key = f"{original_msg.chat_id}_{original_msg.id}"
+                        messages_map[message_key] = sent.id
+                    logger.info(f"已将 {len(media_files)} 个媒体作为组发送成功（来自「{chat_name}」）")
             except Exception as e:
-                logger.error(f"发送媒体组时出错: {e}")
-                raise  # 将错误传递给外层的异常处理
-        else:
-            logger.warning("没有可用的媒体文件可发送")
-        
-        # 清理临时文件
-        for file_path in media_files:
+                logger.error(f"作为组发送媒体失败: {e}")
+                
+                # 如果组发送失败，尝试单独发送每个文件
+                logger.info("尝试分别发送每个媒体文件...")
+                success_count = 0
+                
+                for i, file_path in enumerate(media_files):
+                    try:
+                        # 只在最后一个媒体上添加标题
+                        is_last = (i == len(media_files) - 1)
+                        file_caption = caption_text if is_last else None
+                        
+                        sent = await client.send_file(
+                            destination_channel,
+                            file=file_path,
+                            caption=file_caption,
+                            parse_mode='html' if FORMAT_AS_HTML else None
+                        )
+                        
+                        # 记录消息映射
+                        if i < len(group_messages):
+                            message_key = f"{group_messages[i].chat_id}_{group_messages[i].id}"
+                            messages_map[message_key] = sent.id
+                        
+                        success_count += 1
+                        logger.info(f"已单独发送第 {i+1}/{len(media_files)} 个媒体")
+                        await asyncio.sleep(0.5)
+                    except Exception as e2:
+                        logger.error(f"单独发送媒体 {i+1} 也失败: {e2}")
+                
+                logger.info(f"共成功单独发送 {success_count}/{len(media_files)} 个媒体")
+        finally:
+            # 清理临时文件
             try:
-                os.unlink(file_path)
-            except:
-                pass
-        
-        logger.info("临时文件已清理")
-        logger.info(f"媒体组处理完成，共处理 {len(media_messages)} 个媒体")
+                for file_path in media_files:
+                    if os.path.exists(file_path):
+                        os.unlink(file_path)
+                if os.path.exists(temp_dir):
+                    os.rmdir(temp_dir)
+                logger.info("临时媒体文件已清理")
+            except Exception as e:
+                logger.error(f"清理临时文件时出错: {e}")
     except Exception as e:
-        # 如果组发送失败，尝试一个一个发送
-        logger.error(f"作为组发送媒体失败: {e}")
+        logger.error(f"处理媒体组出现严重错误: {e}")
         import traceback
         logger.error(traceback.format_exc())
-        
-        try:
-            logger.info("尝试单独发送每个媒体...")
-            
-            # 前面的媒体无文字说明
-            for i, path in enumerate(media_files[:-1]):
-                if os.path.exists(path):
-                    await client.send_file(
-                        entity=destination_channel,
-                        file=path,
-                        force_document=False,  # 确保显示为媒体而非文件附件
-                        supports_streaming=True  # 支持视频流媒体播放
-                    )
-                    logger.info(f"已单独发送第 {i+1}/{len(media_files)} 个媒体")
-                    # 每发送一个媒体后短暂暂停，避免API速率限制
-                    await asyncio.sleep(0.5)
-            
-            # 最后一个媒体带文字说明
-            if media_files and os.path.exists(media_files[-1]):
-                await client.send_file(
-                    entity=destination_channel,
-                    file=media_files[-1],
-                    caption=caption_text[:1024] if caption_text else None,
-                    parse_mode='md',
-                    force_document=False,  # 确保显示为媒体而非文件附件
-                    supports_streaming=True  # 支持视频流媒体播放
-                )
-                logger.info("已单独发送最后一个媒体（带文字说明）")
-            
-            # 清理临时文件
-            for file_path in media_files:
-                try:
-                    os.unlink(file_path)
-                except:
-                    pass
-            
-            logger.info("备用方法发送成功，临时文件已清理")
-        except Exception as e2:
-            logger.error(f"单独发送也失败: {e2}")
-            logger.error(traceback.format_exc())
-            
-            # 清理临时文件
-            for file_path in media_files:
-                try:
-                    os.unlink(file_path)
-                except:
-                    pass
 
 # 添加一个函数来判断媒体类型并返回适当的文件扩展名
 def get_media_extension(media):
@@ -1176,7 +1327,7 @@ def get_media_extension(media):
                 return os.path.splitext(attribute.file_name)[1]
         # 如果没有找到文件名，默认使用.mp4（针对视频）
         return '.mp4'
-    return ''  # 如果无法确定类型，返回空字符串
+    return '.bin'  # 默认二进制文件扩展名
 
 if __name__ == '__main__':
     asyncio.run(main()) 
