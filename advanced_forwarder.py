@@ -144,6 +144,9 @@ ADD_FOOTER = os.environ.get('ADD_FOOTER', 'True').lower() in ['true', '1', 'yes'
 FOOTER_TEXT = os.environ.get('FOOTER_TEXT', '').strip()
 FORMAT_AS_HTML = os.environ.get('FORMAT_AS_HTML', 'False').lower() in ['true', '1', 'yes', 'y']
 
+# 是否使用joined_channels.json中的所有频道进行监控
+USE_JOINED_CHANNELS_FILE = os.environ.get('USE_JOINED_CHANNELS_FILE', 'True').lower() in ['true', '1', 'yes', 'y']
+
 # 标题过滤设置
 TITLE_FILTER = os.getenv('TITLE_FILTER', '')  # 标题过滤关键词，多个用逗号分隔，为空则不过滤
 # 将TITLE_KEYWORDS设置为空列表，禁用过滤功能
@@ -431,6 +434,23 @@ async def main():
     # 加载已加入的频道记录
     joined_channel_links = load_joined_channels()
     
+    # 将joined_channels.json的所有链接也添加到SOURCE_CHANNELS中
+    combined_source_channels = []
+    
+    # 首先添加环境变量中的SOURCE_CHANNELS
+    for ch in SOURCE_CHANNELS:
+        if ch.strip():
+            combined_source_channels.append(ch.strip())
+    
+    # 然后添加joined_channels.json中的链接
+    for ch in joined_channel_links:
+        if ch.strip() and ch.strip() not in combined_source_channels:
+            combined_source_channels.append(ch.strip())
+    
+    # 移除重复项
+    combined_source_channels = list(set(combined_source_channels))
+    logger.info(f"合并后将监控 {len(combined_source_channels)} 个频道/群组")
+    
     # 尝试自动加入源频道
     logger.info("尝试自动加入配置的源频道...")
     join_results = []
@@ -438,7 +458,7 @@ async def main():
     
     # 准备所有需要加入的频道列表
     channels_to_join = []
-    for ch_id in SOURCE_CHANNELS:
+    for ch_id in combined_source_channels:
         ch_id = ch_id.strip()
         if not ch_id:
             continue
@@ -893,6 +913,11 @@ async def main():
                         message_type = 'document'
                 has_media = True
             
+            # 如果消息是纯文本且不包含媒体，则跳过转发
+            if not has_media:
+                logger.info(f"跳过纯文本消息 (ID: {message.id}) - 根据设置只转发包含媒体的消息")
+                return
+            
             # 计算真实的阅读延迟（基于消息长度和类型）
             text_length = len(message.text) if message.text else 0
             reading_time = HumanLikeSettings.calculate_reading_time(text_length, has_media, message_type)
@@ -914,7 +939,7 @@ async def main():
             await asyncio.sleep(final_reading_time)
             
             # 模拟"打字"和处理时间 - 对于较长消息，添加额外处理时间
-            if text_length > 50 and not has_media:
+            if text_length > 50 and has_media:
                 typing_time = random.uniform(1.5, 4.0)
                 logger.info(f"模拟转发前的思考/处理时间: {typing_time:.1f}秒")
                 await asyncio.sleep(typing_time)
@@ -936,57 +961,30 @@ async def main():
                 logger.info(f"检测到媒体组消息，组ID: {message.grouped_id}")
                 await handle_media_group(client, message, source_info, footer, destination_channel)
             else:
-                # 处理普通消息
-                if message.media:
-                    # 处理媒体消息
-                    logger.info(f"处理来自「{chat_name}」的媒体消息")
-                    caption = message.text if message.text else ""
-                    caption = caption + source_info + footer
+                # 处理媒体消息 (已经确保了消息包含媒体)
+                logger.info(f"处理来自「{chat_name}」的媒体消息")
+                caption = message.text if message.text else ""
+                caption = caption + source_info + footer
+                
+                # 模拟上传准备时间
+                upload_prep_time = random.uniform(0.5, 2.0)
+                logger.info(f"模拟媒体上传准备时间: {upload_prep_time:.1f}秒")
+                await asyncio.sleep(upload_prep_time)
+                
+                # 重新发送媒体（不是转发）
+                try:
+                    sent_message = await client.send_file(
+                        destination_channel,
+                        message.media,
+                        caption=caption,
+                        parse_mode='html' if FORMAT_AS_HTML else None
+                    )
+                    logger.info(f"已转发媒体消息 (ID: {message.id}) 到目标频道，新消息ID: {sent_message.id}")
                     
-                    # 模拟上传准备时间
-                    upload_prep_time = random.uniform(0.5, 2.0)
-                    logger.info(f"模拟媒体上传准备时间: {upload_prep_time:.1f}秒")
-                    await asyncio.sleep(upload_prep_time)
-                    
-                    # 重新发送媒体（不是转发）
-                    try:
-                        sent_message = await client.send_file(
-                            destination_channel,
-                            message.media,
-                            caption=caption,
-                            parse_mode='html' if FORMAT_AS_HTML else None
-                        )
-                        logger.info(f"已转发媒体消息 (ID: {message.id}) 到目标频道，新消息ID: {sent_message.id}")
-                        
-                        # 记录消息映射
-                        messages_map[message_key] = sent_message.id
-                    except Exception as e:
-                        logger.error(f"转发媒体消息 {message.id} 失败: {e}")
-                else:
-                    # 处理纯文本消息
-                    if message.text:
-                        text = message.text + source_info + footer
-                        
-                        # 模拟打字时间
-                        typing_time = random.uniform(0.3, 1.5)
-                        logger.info(f"模拟打字时间: {typing_time:.1f}秒")
-                        await asyncio.sleep(typing_time)
-                        
-                        try:
-                            # 直接发送新消息而不是转发
-                            sent_message = await client.send_message(
-                                destination_channel,
-                                text,
-                                parse_mode='html' if FORMAT_AS_HTML else None
-                            )
-                            logger.info(f"已转发文本消息 (ID: {message.id}) 到目标频道，新消息ID: {sent_message.id}")
-                            
-                            # 记录消息映射
-                            messages_map[message_key] = sent_message.id
-                        except Exception as e:
-                            logger.error(f"转发文本消息 {message.id} 失败: {e}")
-                    else:
-                        logger.warning(f"跳过空消息 (ID: {message.id})")
+                    # 记录消息映射
+                    messages_map[message_key] = sent_message.id
+                except Exception as e:
+                    logger.error(f"转发媒体消息 {message.id} 失败: {e}")
                 
                 # 转发成功后添加小延迟，模拟人类行为
                 delay_after_send = random.uniform(0.8, 2.5)
@@ -1006,6 +1004,19 @@ async def main():
             # 获取频道名称
             source_chat = await event.get_chat()
             chat_name = getattr(source_chat, 'title', f'未知频道 {event.chat_id}')
+            
+            # 检查消息是否包含媒体
+            has_media = False
+            if message.media:
+                if isinstance(message.media, MessageMediaPhoto):
+                    has_media = True
+                elif isinstance(message.media, MessageMediaDocument):
+                    has_media = True
+            
+            # 如果消息是纯文本且不包含媒体，则跳过转发
+            if not has_media:
+                logger.info(f"跳过编辑的纯文本消息 (ID: {message.id}) - 根据设置只转发包含媒体的消息")
+                return
             
             # 检查是否之前已转发
             if message_key not in messages_map:
@@ -1030,10 +1041,28 @@ async def main():
             # 创建新消息
             new_message = message_content + source_info + footer
             
-            # 发送新消息
-            await client.send_message(destination_channel, new_message, parse_mode='html' if FORMAT_AS_HTML else None)
-            
-            logger.info(f"已转发编辑的消息 (ID: {message.id}) 到目标频道，新消息ID: {dest_message_id}")
+            # 发送包含原始媒体的编辑消息
+            try:
+                await client.send_file(
+                    destination_channel,
+                    message.media,
+                    caption=new_message,
+                    parse_mode='html' if FORMAT_AS_HTML else None
+                )
+                logger.info(f"已转发编辑的媒体消息 (ID: {message.id}) 到目标频道")
+            except Exception as e:
+                logger.error(f"转发编辑的媒体消息失败: {e}")
+                
+                # 尝试发送文本说明
+                try:
+                    await client.send_message(
+                        destination_channel,
+                        f"⚠️ 消息已更新，但媒体无法转发:\n\n{new_message}",
+                        parse_mode='html' if FORMAT_AS_HTML else None
+                    )
+                    logger.info(f"已发送消息编辑通知")
+                except Exception as e2:
+                    logger.error(f"发送编辑通知也失败: {e2}")
         except Exception as e:
             logger.error(f"处理编辑消息时出错: {e}")
     
@@ -1270,7 +1299,7 @@ async def process_media_group_final(client, group_id):
             except Exception as e:
                 logger.error(f"作为组发送媒体失败: {e}")
                 
-                # 如果组发送失败，尝试单独发送每个文件
+                # 如果组发送失败，尝试分别发送每个文件
                 logger.info("尝试分别发送每个媒体文件...")
                 success_count = 0
                 
