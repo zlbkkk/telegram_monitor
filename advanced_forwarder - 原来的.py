@@ -26,7 +26,7 @@ from logging.handlers import TimedRotatingFileHandler
 import random
 import mimetypes
 # 导入MySQL功能
-from mysql_functions import save_message_to_mysql, get_message_by_contact, get_message_stats, check_contact_exists, update_repeat_counter
+from mysql_functions import save_message_to_mysql
 
 # 每日消息限额设置 (新增)
 MAX_DAILY_MESSAGES = 300  # 每天最多转发50条消息
@@ -34,9 +34,15 @@ daily_message_count = 0  # 当前日期已转发消息计数
 last_count_reset_date = datetime.now().date()  # 上次重置计数的日期
 
 # 消息转发冷却时间设置（新增）
-COOLDOWN_MINUTES = random.randint(1, 10)  # 转发后冷却5~20分钟
+COOLDOWN_MINUTES = random.randint(5, 20)  # 转发后冷却5~20分钟
 last_forward_time = None  # 上次转发消息的时间
 processing_message = False  # 初始化处理中标志为 False
+
+# 在全局变量区域添加，和daily_message_count同一位置
+# 存储已转发消息的哈希值，用于检测重复消息
+forwarded_message_hashes = set()
+# 设置哈希记录的最大数量，以防内存占用过大
+MAX_HASH_RECORDS = 100
 
 # 检查是否可以发送更多消息 (新增)
 def can_send_more_messages():
@@ -53,6 +59,10 @@ def can_send_more_messages():
         # 重置处理中标志，解决新的一天后消息处理被阻塞的问题
         processing_message = False
         logger.info("检测到新的一天，重置消息处理状态为空闲")
+        
+        # 清空消息哈希记录，避免历史记录过多
+        forwarded_message_hashes.clear()
+        logger.info("新的一天开始，清空消息重复检测记录")
     
     # 检查是否超过每日限额
     if daily_message_count >= MAX_DAILY_MESSAGES:
@@ -516,69 +526,25 @@ def contains_keywords(text):
     return False
 
 def extract_contact_username(text):
-    """从消息文本中提取私聊联系人用户名，排除频道、朋友圈和机器人相关的信息"""
+    """从消息文本中提取私聊联系人用户名"""
     if not text:
         return None
     
-    # 将文本按行分割，便于分析每一行
-    lines = text.split('\n')
-    username = None
+    # 使用正则表达式匹配"私聊:"或"私聊："后面的@用户名
+    username_pattern = r'私聊[:\s：]\s*(@\w+)'
+    matches = re.findall(username_pattern, text)
     
-    # 处理每一行文本
-    for line in lines:
-        line = line.strip()
-        
-        # 跳过空行
-        if not line:
-            continue
-            
-        # 检查特定关键词：排除频道、朋友圈和机器人相关的行
-        if any(keyword in line.lower() for keyword in ['频道', '朋友圈', '机器人']):
-            continue
-        
-        # 匹配私聊或联系后面的用户名
-        if '私聊' in line or '联系' in line:
-            # 尝试匹配"私聊:"或"联系:"后面的@用户名
-            username_pattern = r'(私聊|联系)[:\s：]\s*(@\w+)'
-            matches = re.findall(username_pattern, line)
-            if matches:
-                username = matches[0][1]  # 取匹配结果的第二个分组，即@xxx部分
-                break
-        
-    # 如果没有匹配到标准格式，尝试其他常见格式
-    if not username:
-        for line in lines:
-            line = line.strip()
-            
-            # 跳过排除关键词
-            if any(keyword in line.lower() for keyword in ['频道', '朋友圈', '机器人']):
-                continue
-                
-            # 如果行中包含联系人相关关键词，提取其中的@用户名
-            if any(keyword in line.lower() for keyword in ['私聊', '联系', 'tg']):
-                alt_pattern = r'@\w+'
-                alt_matches = re.findall(alt_pattern, line)
-                if alt_matches:
-                    username = alt_matches[0]
-                    break
+    # 返回找到的第一个匹配结果
+    if matches:
+        return matches[0]
     
-    # 如果仍未找到，查找任何行中的@用户名
-    if not username:
-        for line in lines:
-            line = line.strip()
-            
-            # 继续排除关键词
-            if any(keyword in line.lower() for keyword in ['频道', '朋友圈', '机器人']):
-                continue
-                
-            # 提取任何@开头的用户名
-            alt_pattern = r'@\w+'
-            alt_matches = re.findall(alt_pattern, line)
-            if alt_matches:
-                username = alt_matches[0]
-                break
-    
-    return username
+    # 如果没有找到，尝试更宽松的匹配 - 任何包含@的短文本
+    alt_pattern = r'@\w+'
+    alt_matches = re.findall(alt_pattern, text)
+    if alt_matches:
+        return alt_matches[0]
+        
+    return None
 
 def remove_duplicated_text(text):
     """检测并移除重复的文本块"""
@@ -663,6 +629,63 @@ def get_full_message_text(message):
     # 将所有文本合并为一个字符串
     return "\n".join(all_text)
 
+# 在increment_message_count函数下方添加
+def generate_message_hash(message, text):
+    """为消息生成唯一哈希值，用于检测重复消息"""
+    # 组合消息的各种特征
+    hash_components = []
+    
+    # 添加消息文本
+    if text:
+        hash_components.append(text)
+    
+    # 添加媒体类型信息
+    media_type = "none"
+    if message.media:
+        if isinstance(message.media, MessageMediaPhoto):
+            media_type = "photo"
+        elif isinstance(message.media, MessageMediaDocument):
+            if hasattr(message.media.document, 'mime_type'):
+                media_type = message.media.document.mime_type
+    hash_components.append(media_type)
+    
+    # 生成哈希值
+    hash_str = "||".join([str(comp) for comp in hash_components if comp])
+    return hash(hash_str)
+
+# 在save_message_count_data函数下方添加
+def save_message_hashes():
+    """保存消息哈希值到文件"""
+    hashes_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'message_hashes.json')
+    try:
+        # 将集合转换为列表以便JSON序列化
+        hashes_list = list(map(str, forwarded_message_hashes))
+        with open(hashes_file, 'w', encoding='utf-8') as f:
+            json.dump(hashes_list, f)
+        logger.debug(f"已保存 {len(hashes_list)} 个消息哈希值")
+    except Exception as e:
+        logger.error(f"保存消息哈希值失败: {e}")
+
+# 在load_message_count_data函数下方添加
+def load_message_hashes():
+    """加载消息哈希值"""
+    global forwarded_message_hashes
+    hashes_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'message_hashes.json')
+    
+    if os.path.exists(hashes_file):
+        try:
+            with open(hashes_file, 'r', encoding='utf-8') as f:
+                hashes_list = json.load(f)
+            # 将字符串列表转换为整数集合
+            forwarded_message_hashes = set(map(int, hashes_list))
+            logger.info(f"已加载 {len(forwarded_message_hashes)} 个消息哈希值")
+        except Exception as e:
+            logger.error(f"加载消息哈希值失败: {e}")
+            forwarded_message_hashes = set()
+    else:
+        logger.info("未找到消息哈希值文件，使用空集合")
+        forwarded_message_hashes = set()
+
 async def main():
     # 创建用户客户端
     # 安全处理SESSION字符串
@@ -690,6 +713,9 @@ async def main():
     
     # 尝试加载消息计数数据
     load_message_count_data()
+    
+    # 加载已处理消息的哈希值
+    load_message_hashes()
     
     try:
         # 启动客户端，显式指定手机号输入方式
@@ -1176,7 +1202,7 @@ async def main():
     @client.on(events.NewMessage(chats=processed_source_channels))
     async def forward_messages(event):
         try:
-            global processing_message, last_forward_time
+            global processing_message, last_forward_time, forwarded_message_hashes
             
             # 打印调试信息，看看 processing_message 的值
             logger.info(f"处理新消息，当前处理状态: {'正在处理中' if processing_message else '空闲'}")
@@ -1226,32 +1252,13 @@ async def main():
             full_message_text = get_full_message_text(message)
             logger.info(f"消息 (ID: {message.id}) 完整文本内容: {full_message_text}")
             
-            # 提取联系人用户名
-            contact_username = extract_contact_username(full_message_text) if 'extract_contact_username' in globals() else None
-            
-            # 如果存在联系人用户名，检查是否为重复消息
-            if contact_username:
-                # 设置重复消息的计数器阈值
-                REPEAT_THRESHOLD = 5
+            # 生成消息哈希，检查是否是重复消息
+            message_hash = generate_message_hash(message, full_message_text)
+            if message_hash in forwarded_message_hashes:
+                logger.info(f"跳过消息 (ID: {message.id}) - 检测到重复内容")
+                processing_message = False
+                return
                 
-                # 检查联系人是否已存在并获取当前计数器值
-                exists, current_counter = check_contact_exists(contact_username)
-                
-                if exists:
-                    logger.info(f"检测到重复联系人: {contact_username}，当前计数器值: {current_counter}")
-                    
-                    # 如果计数器未达到阈值，增加计数器并跳过此消息
-                    if current_counter < REPEAT_THRESHOLD - 1:  # -1是因为之后会加1
-                        new_counter = current_counter + 1
-                        update_repeat_counter(contact_username, new_counter)
-                        logger.info(f"跳过重复消息，联系人: {contact_username}，计数器已更新为: {new_counter}")
-                        processing_message = False
-                        return
-                    else:
-                        # 计数器达到阈值，重置为0并继续处理消息
-                        update_repeat_counter(contact_username, 0)
-                        logger.info(f"重复消息计数达到阈值 ({REPEAT_THRESHOLD})，将允许转发并重置计数器")
-            
             # 检查消息文本是否包含关键词
             if not contains_keywords(full_message_text):
                 logger.info(f"跳过消息 (ID: {message.id}) - 不包含任何指定关键词，关键词列表: {TITLE_KEYWORDS}")
@@ -1351,6 +1358,14 @@ async def main():
                     # 记录消息映射
                     messages_map[message_key] = sent_message.id
                     
+                    # 记录消息哈希，防止重复发送
+                    forwarded_message_hashes.add(message_hash)
+                    # 控制哈希记录数量
+                    if len(forwarded_message_hashes) > MAX_HASH_RECORDS:
+                        # 如果记录过多，只保留最近的一半
+                        forwarded_message_hashes = set(list(forwarded_message_hashes)[-MAX_HASH_RECORDS//2:])
+                        logger.debug(f"哈希记录超过上限，已清理至 {len(forwarded_message_hashes)} 条")
+                    
                     # 增加消息计数并更新最后转发时间
                     last_forward_time = datetime.now()  # 更新最后转发时间
                     increment_message_count()
@@ -1358,6 +1373,9 @@ async def main():
                     # 计算下次可转发时间
                     next_forward_time = last_forward_time + timedelta(minutes=COOLDOWN_MINUTES)
                     logger.info(f"下次可转发时间: {next_forward_time.strftime('%H:%M:%S')}")
+                    
+                    # 保存消息记录到MySQL数据库
+                    contact_username = extract_contact_username(full_message_text) if 'extract_contact_username' in globals() else None
                     
                     # 去除重复内容
                     clean_text = remove_duplicated_text(full_message_text)
@@ -1381,18 +1399,20 @@ async def main():
                     logger.error(f"转发媒体消息 {message.id} 失败: {e}")
             # 转发成功后添加小延迟，模拟人类行为
             delay_after_send = random.uniform(0.8, 2.5)
-            logger.info(f"转发后短暂暂停 {delay_after_send:.1f} 秒")
+            logger.info(f"消息处理完成，等待 {delay_after_send:.1f} 秒...")
             await asyncio.sleep(delay_after_send)
+            
+            # 处理完成后，将标志置为 False
+            processing_message = False
         except Exception as e:
             logger.error(f"处理消息时出错: {e}")
-        finally:
-            # 解锁处理标志
+            # 确保在处理出错时也重置标志
             processing_message = False
     
     # 注册编辑消息处理器
     @client.on(events.MessageEdited(chats=processed_source_channels))
     async def forward_edited_messages(event):
-        global processing_message, last_forward_time
+        global processing_message, last_forward_time, forwarded_message_hashes
         
         try:
             # 如果已经在处理消息，则跳过当前消息
@@ -1430,49 +1450,20 @@ async def main():
             # 跳过纯文本消息
             if not has_media:
                 logger.info(f"跳过编辑的纯文本消息 (ID: {message.id}) - 根据设置只转发包含媒体的消息")
-                processing_message = False
                 return
             
             # 获取完整的消息文本内容
             full_message_text = get_full_message_text(message)
             logger.info(f"编辑消息 (ID: {message.id}) 完整文本内容: {full_message_text[:100]}...")
             
-            # 提取联系人用户名
-            contact_username = extract_contact_username(full_message_text) if 'extract_contact_username' in globals() else None
-            
-            # 如果存在联系人用户名，检查是否为重复消息
-            if contact_username:
-                # 设置重复消息的计数器阈值
-                REPEAT_THRESHOLD = 5
-                
-                # 检查联系人是否已存在并获取当前计数器值
-                exists, current_counter = check_contact_exists(contact_username)
-                
-                if exists:
-                    logger.info(f"检测到重复联系人: {contact_username}，当前计数器值: {current_counter}")
-                    
-                    # 如果计数器未达到阈值，增加计数器并跳过此消息
-                    if current_counter < REPEAT_THRESHOLD - 1:  # -1是因为之后会加1
-                        new_counter = current_counter + 1
-                        update_repeat_counter(contact_username, new_counter)
-                        logger.info(f"跳过重复编辑消息，联系人: {contact_username}，计数器已更新为: {new_counter}")
-                        processing_message = False
-                        return
-                    else:
-                        # 计数器达到阈值，重置为0并继续处理消息
-                        update_repeat_counter(contact_username, 0)
-                        logger.info(f"重复编辑消息计数达到阈值 ({REPEAT_THRESHOLD})，将允许转发并重置计数器")
-            
             # 检查消息文本是否包含关键词
             if not contains_keywords(full_message_text):
                 logger.info(f"跳过编辑的消息 (ID: {message.id}) - 不包含任何指定关键词")
-                processing_message = False
                 return
             
             # 检查每日消息限额 (新增)
             if not can_send_more_messages():
                 logger.info(f"跳过编辑的消息 (ID: {message.id}) - 已达到每日转发限额 ({MAX_DAILY_MESSAGES})")
-                processing_message = False
                 return
                 
             logger.info(f"编辑的消息 (ID: {message.id}) 包含媒体且文本包含关键词，将进行转发")
@@ -1502,7 +1493,7 @@ async def main():
             
             # 发送包含原始媒体的编辑消息
             try:
-                sent_message = await client.send_file(
+                await client.send_file(
                     destination_channel,
                     message.media,
                     caption=new_message,
@@ -1512,23 +1503,6 @@ async def main():
                 
                 # 增加消息计数 (新增)
                 increment_message_count()
-                
-                # 保存消息记录到MySQL数据库
-                clean_text = remove_duplicated_text(full_message_text)
-                try:
-                    save_message_to_mysql(
-                        message.id,                      # 原始消息ID
-                        str(event.chat_id),              # 源频道ID
-                        chat_name,                       # 源频道名称
-                        sent_message.id,                 # 转发后的消息ID
-                        clean_text,                      # 去重后的消息文本
-                        contact_username,                # 联系人用户名
-                        False,                           # 不是媒体组
-                        None                             # 无媒体组ID
-                    )
-                    logger.info(f"编辑消息记录已保存到MySQL数据库，联系人: {contact_username}")
-                except Exception as db_error:
-                    logger.error(f"保存编辑消息记录到MySQL失败: {db_error}")
             except Exception as e:
                 logger.error(f"转发编辑的媒体消息失败: {e}")
                 
@@ -1544,9 +1518,6 @@ async def main():
                     logger.error(f"发送编辑通知也失败: {e2}")
         except Exception as e:
             logger.error(f"处理编辑消息时出错: {e}")
-        finally:
-            # 确保处理完后重置标志
-            processing_message = False
     
     # 启动通知
     logger.info("高级转发机器人已启动，正在监控频道...")
@@ -1559,12 +1530,13 @@ async def main():
         await client.run_until_disconnected()
     finally:
         # 确保在退出时保存消息计数和哈希值
-        logger.info("保存消息计数数据并退出...")
+        logger.info("保存消息计数数据和哈希值并退出...")
         save_message_count_data()
+        save_message_hashes()
 
 async def handle_media_group(client, message, source_info, footer, destination_channel):
     """处理媒体组消息（多张图片/视频）"""
-    global media_groups
+    global media_groups, forwarded_message_hashes
     
     group_id = str(message.grouped_id)
     message_key = f"{message.chat_id}_{message.id}"
@@ -1675,7 +1647,7 @@ async def process_media_group_with_timeout(client, group_id):
 async def process_media_group_final(client, group_id):
     """最终处理媒体组并转发"""
     try:
-        global processing_message, last_forward_time, daily_message_count
+        global processing_message, last_forward_time, forwarded_message_hashes, daily_message_count
         
         # 如果已经在处理消息，则跳过当前媒体组
         if processing_message:
@@ -1728,34 +1700,13 @@ async def process_media_group_final(client, group_id):
         # 构建最终标题
         caption_text = "\n\n".join(unique_texts)
         
-        # 生成媒体组的完整文本
+        # 生成媒体组的哈希值用于去重
         group_text = "\n".join(full_texts)
-        
-        # 提取联系人用户名
-        contact_username = extract_contact_username(group_text) if 'extract_contact_username' in globals() else None
-        
-        # 如果存在联系人用户名，检查是否为重复消息
-        if contact_username:
-            # 设置重复消息的计数器阈值
-            REPEAT_THRESHOLD = 5
-            
-            # 检查联系人是否已存在并获取当前计数器值
-            exists, current_counter = check_contact_exists(contact_username)
-            
-            if exists:
-                logger.info(f"检测到重复联系人: {contact_username}，当前计数器值: {current_counter}")
-                
-                # 如果计数器未达到阈值，增加计数器并跳过此消息
-                if current_counter < REPEAT_THRESHOLD - 1:  # -1是因为之后会加1
-                    new_counter = current_counter + 1
-                    update_repeat_counter(contact_username, new_counter)
-                    logger.info(f"跳过重复媒体组消息，联系人: {contact_username}，计数器已更新为: {new_counter}")
-                    processing_message = False
-                    return
-                else:
-                    # 计数器达到阈值，重置为0并继续处理消息
-                    update_repeat_counter(contact_username, 0)
-                    logger.info(f"重复媒体组消息计数达到阈值 ({REPEAT_THRESHOLD})，将允许转发并重置计数器")
+        group_hash = generate_message_hash(group_messages[0], group_text)
+        if group_hash in forwarded_message_hashes:
+            logger.info(f"跳过媒体组 {group_id} - 检测到重复内容")
+            processing_message = False
+            return
         
         # 检查媒体组消息文本是否包含关键词
         has_keywords = False
@@ -1868,6 +1819,12 @@ async def process_media_group_final(client, group_id):
                 logger.info(f"成功发送媒体组 {group_id} 到目标频道，首条消息ID: {first_sent_id}")
                 
                 # 记录媒体组哈希，防止重复发送
+                forwarded_message_hashes.add(group_hash)
+                # 控制哈希记录数量
+                if len(forwarded_message_hashes) > MAX_HASH_RECORDS:
+                    # 如果记录过多，只保留最近的一半
+                    forwarded_message_hashes = set(list(forwarded_message_hashes)[-MAX_HASH_RECORDS//2:])
+                    logger.debug(f"哈希记录超过上限，已清理至 {len(forwarded_message_hashes)} 条")
                 
                 # 更新转发计数和时间
                 last_forward_time = datetime.now()
@@ -1876,6 +1833,9 @@ async def process_media_group_final(client, group_id):
                 # 计算下次可转发时间
                 next_forward_time = last_forward_time + timedelta(minutes=COOLDOWN_MINUTES)
                 logger.info(f"下次可转发时间: {next_forward_time.strftime('%H:%M:%S')}")
+                
+                # 保存媒体组记录到MySQL数据库
+                contact_username = extract_contact_username(group_text) if 'extract_contact_username' in globals() else None
                 
                 # 去除重复内容
                 clean_text = remove_duplicated_text(group_text)
@@ -1938,4 +1898,4 @@ def get_media_extension(media):
     return '.bin'  # 默认二进制文件扩展名
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main()) 

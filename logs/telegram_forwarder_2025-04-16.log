@@ -1,0 +1,361 @@
+2025-04-16 22:53:37,989 - root - ERROR - 登录过程出错: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+2025-04-16 22:53:37,985 - telethon.client.updates - WARNING - Error executing high-level request after reconnect: <class 'telethon.errors.rpcerrorlist.AuthKeyDuplicatedError'>: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by GetUsersRequest)
+2025-04-16 22:53:37,723 - telethon.network.mtprotostate - WARNING - Server resent the older message 7493924295416869889, ignoring
+2025-04-16 22:53:37,297 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:37,291 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:37,289 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:37,286 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:37,281 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:37,264 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:37,252 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:37,252 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:37,252 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:37,252 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:37,252 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:37,252 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:37,252 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:37,252 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:34,967 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:34,964 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:34,962 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:34,961 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:34,958 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:34,940 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:34,937 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:34,935 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:34,934 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:34,932 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:34,931 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:34,929 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:34,927 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:34,926 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:32,644 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:32,641 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:32,639 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:32,636 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:32,634 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:32,619 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:12,217 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:12,218 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:12,221 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:12,226 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:12,226 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:12,228 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:12,229 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:12,234 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:17,235 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:17,235 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:17,235 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:17,235 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:17,235 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:17,240 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:17,241 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:17,242 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:17,246 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:17,257 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:17,259 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:17,261 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:17,263 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:17,267 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:19,560 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:19,561 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:19,561 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:19,562 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:19,563 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:19,563 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:19,563 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:19,565 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:19,567 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:19,573 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:19,574 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:19,576 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:19,577 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:19,578 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:21,868 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:21,868 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:21,868 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:21,868 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:21,868 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:21,868 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:21,873 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:21,873 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:21,874 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:21,885 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:21,886 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:21,889 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:21,890 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:21,893 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:24,204 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:24,204 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:24,204 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:24,208 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:24,209 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:24,210 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:24,210 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:24,210 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:24,217 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:24,227 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:24,229 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:24,231 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:24,233 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:24,237 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:26,530 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:26,531 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:26,533 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:26,533 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:26,534 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:26,534 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:26,534 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:26,534 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:26,541 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:26,555 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:26,556 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:26,559 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:26,561 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:26,565 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:28,844 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:28,846 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:28,846 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:28,846 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:28,846 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:28,846 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:28,846 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:28,846 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:28,856 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:28,867 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:28,867 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:28,874 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:28,876 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:28,880 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:32,606 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:32,607 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:32,608 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:32,609 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:32,609 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:32,609 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:32,609 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:32,609 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:37,054 - root - INFO - ==================================================
+2025-04-16 22:52:37,054 - root - INFO - 高级转发机器人启动 - 2025-04-16 22:52:37
+2025-04-16 22:52:37,054 - root - INFO - ==================================================
+2025-04-16 22:52:37,058 - root - INFO - 使用已有会话登录...
+2025-04-16 22:52:37,062 - root - INFO - 初始化转发时间为 None，确保启动时无冷却限制
+2025-04-16 22:52:37,062 - root - INFO - 程序重启后重置今日消息计数: 0/300
+2025-04-16 22:52:37,062 - root - INFO - 上次运行的消息计数为: 0 (日期: 2025-04-16)，已忽略并重置为0
+2025-04-16 22:52:37,062 - root - INFO - 已加载 0 个消息哈希值
+2025-04-16 22:52:37,062 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:37,066 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:42,074 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:42,075 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:42,075 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:42,075 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:42,076 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:42,076 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:42,076 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:42,076 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:42,077 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:42,079 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:42,079 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:42,080 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:52:42,081 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:42,082 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:47,088 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:47,090 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:47,092 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:47,093 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:47,094 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:47,096 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:47,097 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:47,098 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:47,102 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:47,107 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:47,110 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:47,112 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:52:47,114 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:47,117 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:52,117 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:52,118 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:52,118 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:52,118 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:52,119 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:52,120 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:52,120 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:52,120 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:52,121 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:52,125 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:52,126 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:52,128 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:52:52,128 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:52,128 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:57,129 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:57,129 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:57,129 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:57,131 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:57,132 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:57,132 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:57,132 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:52:57,134 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:57,135 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:52:57,138 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:52:57,139 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:52:57,140 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:52:57,141 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:52:57,143 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:02,155 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:02,155 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:02,155 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:02,158 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:02,158 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:02,160 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:02,160 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:02,160 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:02,164 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:02,169 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:02,170 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:02,172 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:02,173 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:02,176 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:07,184 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:07,185 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:07,185 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:07,185 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:07,185 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:07,185 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:07,185 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:07,185 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:07,193 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:07,197 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:07,199 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:07,200 - telethon.network.mtprotosender - INFO - Connection closed while sending data
+2025-04-16 22:53:07,201 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:53:07,203 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:53:12,207 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:12,207 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:12,207 - telethon.network.mtprotosender - INFO - Connection closed while receiving data
+2025-04-16 22:53:12,210 - telethon.network.connection.connection - WARNING - Server closed the connection: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:53:12,211 - telethon.network.mtprotosender - INFO - Closing current connection to begin reconnect...
+2025-04-16 22:53:12,213 - telethon.network.connection.connection - INFO - <class 'ConnectionResetError'> during disconnect: [WinError 64] 指定的网络名不再可用。
+2025-04-16 22:47:27,610 - root - ERROR - 登录过程出错: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+2025-04-16 22:47:27,126 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:47:27,118 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:47:27,118 - root - INFO - 已加载 0 个消息哈希值
+2025-04-16 22:47:27,118 - root - INFO - 上次运行的消息计数为: 0 (日期: 2025-04-16)，已忽略并重置为0
+2025-04-16 22:47:27,118 - root - INFO - 程序重启后重置今日消息计数: 0/300
+2025-04-16 22:47:27,118 - root - INFO - 初始化转发时间为 None，确保启动时无冷却限制
+2025-04-16 22:47:27,118 - root - INFO - 使用已有会话登录...
+2025-04-16 22:47:27,118 - root - INFO - ==================================================
+2025-04-16 22:47:27,118 - root - INFO - 高级转发机器人启动 - 2025-04-16 22:47:27
+2025-04-16 22:47:27,118 - root - INFO - ==================================================
+2025-04-16 22:45:59,937 - root - INFO - 保存消息计数数据和哈希值并退出...
+2025-04-16 22:45:59,936 - telethon.network.mtprotosender - INFO - Disconnection from 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:45:59,935 - telethon.network.mtprotosender - INFO - Disconnecting from 91.108.56.183:443/TcpFull...
+2025-04-16 22:42:05,738 - root - ERROR - 处理消息时出错: cannot access local variable 'forwarded_message_hashes' where it is not associated with a value
+2025-04-16 22:42:05,736 - root - INFO - 消息 (ID: 42) 完整文本内容: 位置：宝安 西乡
+名字：小鱼
+
+私聊：@Xiag6868
+频道：http://t.me/zonz3366
+双向机器人：@LXaaa798bot
+位置：宝安 西乡
+名字：小鱼
+
+私聊：@Xiag6868
+频道：http://t.me/zonz3366
+双向机器人：@LXaaa798bot
+位置：宝安 西乡
+名字：小鱼
+
+私聊：@Xiag6868
+频道：http://t.me/zonz3366
+双向机器人：@LXaaa798bot
+2025-04-16 22:42:05,735 - root - INFO - 收到来自频道「被复制的群组-1」的新消息: 42
+2025-04-16 22:42:05,734 - root - INFO - 处理新消息，当前处理状态: 空闲
+2025-04-16 22:41:40,540 - root - INFO - 每日消息配额: 300条，今日已发送: 0条，剩余: 300条
+2025-04-16 22:41:40,540 - root - INFO - 目标频道: -1001915427892
+2025-04-16 22:41:40,540 - root - INFO - 监控的频道: [<telethon.tl.types.Channel object at 0x0000027C616BE410>, <telethon.tl.types.Channel object at 0x0000027C616BF5D0>, <telethon.tl.types.Channel object at 0x0000027C616BF310>]
+2025-04-16 22:41:40,540 - root - INFO - 高级转发机器人已启动，正在监控频道...
+2025-04-16 22:41:40,540 - root - INFO - ========================
+2025-04-16 22:41:40,540 - root - INFO - 3. 「被复制的群组-1」
+2025-04-16 22:41:40,540 - root - INFO - 2. 「深圳修车大队」
+2025-04-16 22:41:40,540 - root - INFO - 1. 「深圳最全动态榜」
+2025-04-16 22:41:40,540 - root - INFO - === 开始监控以下频道 ===
+2025-04-16 22:41:40,540 - root - INFO - 已发送测试消息到目标频道，连接正常
+2025-04-16 22:41:40,335 - root - INFO - 已连接到目标频道: 「👩🏻‍🦰深圳乐逍遥楼凤频道」
+2025-04-16 22:41:40,081 - root - INFO - 尝试连接目标频道: -1001915427892
+2025-04-16 22:41:40,081 - root - INFO - 使用修正后的ID格式成功连接频道: 「被复制的群组-1」
+2025-04-16 22:41:39,952 - root - INFO - 尝试修正频道ID格式: 2559453784 -> -1002559453784
+2025-04-16 22:41:39,952 - root - INFO - 使用修正后的ID格式成功连接频道: 「深圳修车大队」
+2025-04-16 22:41:39,808 - root - INFO - 尝试修正频道ID格式: 1598335961 -> -1001598335961
+2025-04-16 22:41:39,808 - root - INFO - 使用修正后的ID格式成功连接频道: 「深圳最全动态榜」
+2025-04-16 22:41:39,654 - root - INFO - 尝试修正频道ID格式: 2285829348 -> -1002285829348
+2025-04-16 22:41:39,652 - root - INFO - 原始SOURCE_CHANNELS长度: 3
+2025-04-16 22:41:39,652 - root - INFO - ✅ 已从记录中恢复: 被复制的群组-1
+2025-04-16 22:41:39,652 - root - INFO - ✅ 已从记录中恢复: 深圳修车大队
+2025-04-16 22:41:39,652 - root - INFO - ✅ 已从记录中恢复: 深圳最全动态榜
+2025-04-16 22:41:39,652 - root - INFO - 频道加入结果摘要:
+2025-04-16 22:41:39,652 - root - INFO - 准备加入 0 个频道，将模拟人类操作速度...
+2025-04-16 22:41:39,652 - root - INFO - 已从记录中恢复频道: 「被复制的群组-1」
+2025-04-16 22:41:39,497 - root - INFO - 跳过已记录加入的频道: https://t.me/beifuzhiqunzu
+2025-04-16 22:41:39,497 - root - INFO - 已从记录中恢复频道: 「深圳修车大队」
+2025-04-16 22:41:39,350 - root - INFO - 跳过已记录加入的频道: https://t.me/+yXL4uZgD7p1jZGZl
+2025-04-16 22:41:39,350 - root - INFO - 已从记录中恢复频道: 「深圳最全动态榜」
+2025-04-16 22:41:39,221 - root - INFO - 跳过已记录加入的频道: https://t.me/szzqdt
+2025-04-16 22:41:39,221 - root - INFO - 尝试自动加入配置的源频道...
+2025-04-16 22:41:39,220 - root - INFO - 已加载 3 个已加入频道的记录
+2025-04-16 22:41:39,219 - root - INFO - 登录成功!
+2025-04-16 22:41:37,868 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 22:41:37,860 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 22:41:37,860 - root - INFO - 已加载 0 个消息哈希值
+2025-04-16 22:41:37,860 - root - INFO - 上次运行的消息计数为: 0 (日期: 2025-04-16)，已忽略并重置为0
+2025-04-16 22:41:37,860 - root - INFO - 程序重启后重置今日消息计数: 0/300
+2025-04-16 22:41:37,860 - root - INFO - 初始化转发时间为 None，确保启动时无冷却限制
+2025-04-16 22:41:37,860 - root - INFO - 使用已有会话登录...
+2025-04-16 22:41:37,860 - root - INFO - ==================================================
+2025-04-16 22:41:37,860 - root - INFO - 高级转发机器人启动 - 2025-04-16 22:41:37
+2025-04-16 22:41:37,860 - root - INFO - ==================================================
+2025-04-16 21:30:32,105 - root - INFO - 保存消息计数数据和哈希值并退出...
+2025-04-16 21:30:32,105 - telethon.network.mtprotosender - INFO - Disconnection from 91.108.56.183:443/TcpFull complete!
+2025-04-16 21:30:32,103 - telethon.network.mtprotosender - INFO - Disconnecting from 91.108.56.183:443/TcpFull...
+2025-04-16 21:28:44,308 - root - INFO - 每日消息配额: 300条，今日已发送: 0条，剩余: 300条
+2025-04-16 21:28:44,307 - root - INFO - 目标频道: -1001915427892
+2025-04-16 21:28:44,307 - root - INFO - 监控的频道: [<telethon.tl.types.Channel object at 0x000001DF8735F490>, <telethon.tl.types.Channel object at 0x000001DF8735F690>, <telethon.tl.types.Channel object at 0x000001DF8735F450>]
+2025-04-16 21:28:44,307 - root - INFO - 高级转发机器人已启动，正在监控频道...
+2025-04-16 21:28:44,303 - root - INFO - ========================
+2025-04-16 21:28:44,303 - root - INFO - 3. 「被复制的群组-1」
+2025-04-16 21:28:44,303 - root - INFO - 2. 「深圳修车大队」
+2025-04-16 21:28:44,303 - root - INFO - 1. 「深圳最全动态榜」
+2025-04-16 21:28:44,303 - root - INFO - === 开始监控以下频道 ===
+2025-04-16 21:28:44,303 - root - INFO - 已发送测试消息到目标频道，连接正常
+2025-04-16 21:28:44,057 - root - INFO - 已连接到目标频道: 「👩🏻‍🦰深圳乐逍遥楼凤频道」
+2025-04-16 21:28:43,778 - root - INFO - 尝试连接目标频道: -1001915427892
+2025-04-16 21:28:43,778 - root - INFO - 使用修正后的ID格式成功连接频道: 「被复制的群组-1」
+2025-04-16 21:28:43,627 - root - INFO - 尝试修正频道ID格式: 2559453784 -> -1002559453784
+2025-04-16 21:28:43,627 - root - INFO - 使用修正后的ID格式成功连接频道: 「深圳修车大队」
+2025-04-16 21:28:43,477 - root - INFO - 尝试修正频道ID格式: 1598335961 -> -1001598335961
+2025-04-16 21:28:43,476 - root - INFO - 使用修正后的ID格式成功连接频道: 「深圳最全动态榜」
+2025-04-16 21:28:43,320 - root - INFO - 尝试修正频道ID格式: 2285829348 -> -1002285829348
+2025-04-16 21:28:43,320 - root - INFO - 原始SOURCE_CHANNELS长度: 3
+2025-04-16 21:28:43,320 - root - INFO - ✅ 已从记录中恢复: 被复制的群组-1
+2025-04-16 21:28:43,320 - root - INFO - ✅ 已从记录中恢复: 深圳修车大队
+2025-04-16 21:28:43,320 - root - INFO - ✅ 已从记录中恢复: 深圳最全动态榜
+2025-04-16 21:28:43,320 - root - INFO - 频道加入结果摘要:
+2025-04-16 21:28:43,319 - root - INFO - 准备加入 0 个频道，将模拟人类操作速度...
+2025-04-16 21:28:43,319 - root - INFO - 已从记录中恢复频道: 「被复制的群组-1」
+2025-04-16 21:28:43,116 - root - INFO - 跳过已记录加入的频道: https://t.me/beifuzhiqunzu
+2025-04-16 21:28:43,116 - root - INFO - 已从记录中恢复频道: 「深圳修车大队」
+2025-04-16 21:28:42,886 - root - INFO - 跳过已记录加入的频道: https://t.me/+yXL4uZgD7p1jZGZl
+2025-04-16 21:28:42,885 - root - INFO - 已从记录中恢复频道: 「深圳最全动态榜」
+2025-04-16 21:28:42,700 - root - INFO - 跳过已记录加入的频道: https://t.me/szzqdt
+2025-04-16 21:28:42,700 - root - INFO - 尝试自动加入配置的源频道...
+2025-04-16 21:28:42,700 - root - INFO - 已加载 3 个已加入频道的记录
+2025-04-16 21:28:42,699 - root - INFO - 登录成功!
+2025-04-16 21:28:41,558 - telethon.network.mtprotosender - INFO - Connection to 91.108.56.183:443/TcpFull complete!
+2025-04-16 21:28:41,557 - telethon.network.mtprotosender - INFO - Connecting to 91.108.56.183:443/TcpFull...
+2025-04-16 21:28:41,556 - root - INFO - 未找到消息哈希值文件，使用空集合
+2025-04-16 21:28:41,556 - root - INFO - 上次运行的消息计数为: 4 (日期: 2025-04-15)，已忽略并重置为0
+2025-04-16 21:28:41,554 - root - INFO - 程序重启后重置今日消息计数: 0/300
+2025-04-16 21:28:41,554 - root - INFO - 初始化转发时间为 None，确保启动时无冷却限制
+2025-04-16 21:28:41,554 - root - INFO - 使用已有会话登录...
+2025-04-16 21:28:41,547 - root - INFO - ==================================================
+2025-04-16 21:28:41,547 - root - INFO - 高级转发机器人启动 - 2025-04-16 21:28:41
+2025-04-16 21:28:41,547 - root - INFO - ==================================================
